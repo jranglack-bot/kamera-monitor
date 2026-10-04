@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0b0d12">
+<meta name="color-scheme" content="dark">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://0.peerjs.com wss://0.peerjs.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Kamera-Monitor</title>
+<style>
+:root{
+  --bg:#0b0d12; --panel:rgba(18,21,29,.84); --panel-solid:#151922; --field:#0f131b;
+  --line:rgba(255,255,255,.12); --text:#f2f4f8; --muted:#9aa3b2;
+  --accent:#597fd9; --accent-2:#8ea8f2; --rec:#ff3b30; --ok:#34c759; --warn:#ffb020;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-l:env(safe-area-inset-left,0px); --safe-r:env(safe-area-inset-right,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{overflow:hidden;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}
+h2{font-size:19px;margin:0 0 12px;letter-spacing:-.01em}
+.muted{color:var(--muted)} .small{font-size:13px}
+.screen{position:fixed;inset:0}
+
+/* Start */
+#start{overflow-y:auto}
+.startwrap{max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;justify-content:center;gap:14px;
+  padding:calc(28px + var(--safe-t)) 16px calc(28px + var(--safe-b))}
+.startwrap h1{font-size:30px;line-height:1.15;margin:0;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 10px}
+.role{display:flex;align-items:center;gap:16px;width:100%;padding:18px;border-radius:20px;background:var(--panel-solid);border:1px solid var(--line);text-align:left;transition:transform .12s,border-color .12s}
+.role:active{transform:scale(.985);border-color:var(--accent)}
+.role svg{flex:none;width:48px;height:48px;padding:11px;border-radius:15px;background:rgba(89,127,217,.16);color:var(--accent-2)}
+.role b{display:block;font-size:18px;margin-bottom:2px}
+.role small{display:block;color:var(--muted);font-size:14px;line-height:1.35}
+.note{color:var(--muted);font-size:13px;margin:6px 2px 0}
+.note.warn{color:var(--warn)}
+
+/* Bildflächen */
+.stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden}
+#vLocal{width:100%;height:100%;object-fit:contain;display:block}
+.frame{position:relative;width:100%;height:100%;flex:none;transition:opacity .25s}
+.frame video{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:fill;background:#000}
+.frame.mirror{transform:scaleX(-1)}
+.offline .frame{opacity:.35}
+.ov{position:absolute;inset:0;pointer-events:none}
+.grid i{position:absolute;background:rgba(255,255,255,.38)}
+.zones i{position:absolute;background:rgba(255,59,48,.18);box-shadow:inset 0 0 0 1px rgba(255,120,110,.65)}
+.zones.na{display:none}
+.waiting{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);text-align:center;color:var(--muted);margin:0}
+
+/* Leisten */
+.bar{position:absolute;left:0;right:0;display:flex;align-items:center;gap:8px;z-index:5;
+  padding:10px calc(12px + var(--safe-r)) 10px calc(12px + var(--safe-l))}
+.bar.top{top:0;padding-top:calc(10px + var(--safe-t));background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0))}
+.bar.bottom{bottom:0;flex-direction:column;align-items:stretch;gap:12px;padding-bottom:calc(16px + var(--safe-b));background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.65))}
+.pill{display:inline-flex;align-items:center;gap:8px;min-width:0;padding:7px 12px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:13px;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.pill span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--warn);flex:none}
+.pill[data-s=ok] .dot{background:var(--ok)}
+.pill[data-s=bad] .dot{background:var(--rec)}
+.spacer{flex:1}
+.chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.chip{padding:8px 13px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:14px;white-space:nowrap;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent)}
+.recrow{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}
+.recinfo{display:flex;flex-direction:column;gap:7px;min-width:0}
+.timer{display:flex;align-items:center;gap:7px;font-weight:650;font-size:18px;font-variant-numeric:tabular-nums}
+.timer .r{width:10px;height:10px;border-radius:50%;background:var(--rec);opacity:.25}
+.recording .timer .r{opacity:1;animation:blink 1s steps(2,start) infinite}
+@keyframes blink{50%{opacity:.2}}
+.meter{width:100%;max-width:110px;height:6px;border-radius:3px;background:rgba(255,255,255,.2);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s linear}
+.meter.hot i{background:var(--rec)}
+.recside{justify-self:end;text-align:right;font-size:13px;color:var(--muted)}
+.rec{width:78px;height:78px;border-radius:50%;border:4px solid #fff;display:grid;place-items:center;background:rgba(0,0,0,.25)}
+.rec i{display:block;width:58px;height:58px;border-radius:50%;background:var(--rec);transition:all .18s ease}
+.rec[aria-pressed=true] i{width:30px;height:30px;border-radius:7px}
+.rec:disabled{opacity:.45}
+.rec:active i{transform:scale(.92)}
+
+/* Karten und Blätter */
+.card{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);max-width:420px;margin:0 auto;z-index:8;
+  background:var(--panel-solid);border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.55);max-height:calc(100% - 32px);overflow-y:auto}
+.qrbox{display:flex;justify-content:center;margin:4px 0 12px}
+#qr{background:#fff;padding:12px;border-radius:14px;line-height:0}
+#qr img,#qr canvas{display:block;width:184px;height:184px}
+.bigcode{text-align:center;font:700 34px/1.1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.12em;margin:4px 0 10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.row .btn{flex:1}
+.btn{padding:12px 16px;border-radius:13px;background:#232a3a;border:1px solid var(--line);font-size:15px;text-align:center}
+.btn.primary{background:var(--accent);border-color:var(--accent);font-weight:600}
+.btn.danger{color:#ff8f86}
+.btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+.btn.wide{display:block;width:100%;margin-top:10px}
+.btn:active{filter:brightness(1.15)}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:12;max-height:78%;overflow-y:auto;background:var(--panel-solid);border-top:1px solid var(--line);
+  border-radius:22px 22px 0 0;padding:18px calc(16px + var(--safe-r)) calc(20px + var(--safe-b)) calc(16px + var(--safe-l));box-shadow:0 -20px 50px rgba(0,0,0,.5)}
+.sheet-inner{max-width:560px;margin:0 auto}
+.sheethead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.sheethead h2{margin:0}
+.iconbtn{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:50%;background:#232a3a;border:1px solid var(--line);font-size:22px;line-height:1}
+.field{display:grid;gap:7px;margin:0 0 16px}
+.field label{font-size:14px;color:var(--muted)}
+select{width:100%;padding:12px;border-radius:12px;background:var(--field);color:var(--text);border:1px solid var(--line);font:inherit;font-size:16px}
+input[type=range]{width:100%;accent-color:var(--accent);height:28px}
+.codeinput{width:100%;font:700 28px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:.16em;text-align:center;text-transform:uppercase;
+  padding:14px;border-radius:14px;background:var(--field);border:1px solid var(--line);color:var(--text);-webkit-user-select:text;user-select:text}
+.codeinput:focus{outline:2px solid var(--accent);outline-offset:1px}
+.err{color:#ff8f86;font-size:14px;min-height:1.2em;margin:8px 0 0}
+.clip{padding:13px;border:1px solid var(--line);border-radius:15px;margin-bottom:10px;background:var(--field)}
+.clip .ctitle{font-weight:600;font-size:15px;word-break:break-all}
+.clip .meta{font-size:13px;color:var(--muted);margin:3px 0 10px}
+.clip .meta .no{color:var(--warn)}
+.clip .acts{display:flex;gap:8px;flex-wrap:wrap}
+.clip .acts .btn{padding:9px 12px;font-size:14px}
+#vPlay{width:100%;max-height:60vh;border-radius:12px;background:#000;display:block}
+
+#dim{position:fixed;inset:0;background:#000;z-index:40;display:flex;align-items:flex-end;justify-content:center;padding-bottom:calc(40px + var(--safe-b));color:#3a3f4a;font-size:13px}
+#dim.rec{color:#5c1a17}
+#toast{position:fixed;left:50%;top:calc(66px + var(--safe-t));transform:translateX(-50%);z-index:60;max-width:calc(100% - 32px);
+  background:var(--panel-solid);border:1px solid var(--line);padding:10px 14px;border-radius:12px;font-size:14px;box-shadow:0 10px 30px rgba(0,0,0,.5);
+  opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.show{opacity:1}
+@media (max-width:420px){
+  .chips{gap:6px}
+  .chip{font-size:13px;padding:7px 11px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<main id="start" class="screen">
+  <div class="startwrap">
+    <h1>Kamera-Monitor</h1>
+    <p class="sub">Ein Handy filmt mit der großen Kamera hinten, das zweite zeigt dir live, was aufgenommen wird.</p>
+    <button class="role" id="btnCam" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      <span><b>Dieses Handy filmt</b><small>Hauptkamera hinten, die Aufnahme wird hier gespeichert</small></span>
+    </button>
+    <button class="role" id="btnMon" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/><path d="M10 9l4.5 2.5L10 14z" fill="currentColor"/></svg>
+      <span><b>Dieses Handy zeigt das Bild</b><small>Live-Bild sehen, Aufnahme starten und stoppen</small></span>
+    </button>
+    <p class="note">Beide Handys im selben WLAN. Das Video läuft direkt von Handy zu Handy und über keinen Server. Nur zum Koppeln wird kurz das Internet gebraucht.</p>
+    <p class="note warn" id="insecure" hidden>Diese Seite läuft ohne https. Dann gibt der Browser die Kamera nicht frei. Zum Filmen bitte die https-Adresse öffnen.</p>
+  </div>
+</main>
+
+<section id="kamera" class="screen" hidden>
+  <div class="stage"><video id="vLocal" playsinline muted autoplay></video></div>
+  <div class="bar top">
+    <span class="pill" id="kStatus" data-s="wait"><i class="dot"></i><span>Kamera startet …</span></span>
+    <span class="spacer"></span>
+    <button class="chip" id="kPairBtn" type="button">Koppeln</button>
+  </div>
+
+  <div class="card" id="pairCard" hidden>
+    <h2>Zweites Handy koppeln</h2>
+    <div class="qrbox"><div id="qr"></div></div>
+    <div class="bigcode" id="kCode">··· ···</div>
+    <p class="muted small">Mit der normalen Kamera-App des zweiten Handys den QR-Code scannen, fertig. Oder dort diese Seite öffnen, „Dieses Handy zeigt das Bild“ wählen und den Code eintippen. Dann hier einmal „Erlauben“ tippen.</p>
+    <div class="row"><button class="btn" id="kNewCode" type="button">Neuer Code</button><button class="btn primary" id="kPairClose" type="button">Ausblenden</button></div>
+  </div>
+
+  <div class="card" id="kAsk" hidden>
+    <h2>Ein Handy möchte sich verbinden</h2>
+    <p class="muted">Es hat den Code eingetippt. Ist das dein zweites Handy? Danach klappt es mit diesem Handy ohne Nachfrage.</p>
+    <div class="row"><button class="btn" id="kAskNo" type="button">Ablehnen</button><button class="btn primary" id="kAskYes" type="button">Erlauben</button></div>
+  </div>
+
+  <div class="card" id="kError" hidden>
+    <h2>Die Kamera startet nicht</h2>
+    <p id="kErrMsg" class="muted"></p>
+    <div class="row"><button class="btn primary" id="kRetry" type="button">Nochmal versuchen</button></div>
+  </div>
+
+  <div class="bar bottom">
+    <div class="chips">
+      <button class="chip" id="kSetBtn" type="button">Einstellungen</button>
+      <button class="chip" id="kClipsBtn" type="button">Aufnahmen: <span id="kClipsCount">0</span></button>
+      <button class="chip" id="kDimBtn" type="button">Bildschirm dunkel</button>
+    </div>
+    <div class="recrow">
+      <div class="recinfo"><div class="timer"><i class="r"></i><span id="kTimer">0:00</span></div><div class="meter" id="kMeter"><i></i></div></div>
+      <button class="rec" id="kRec" type="button" aria-pressed="false" aria-label="Aufnahme starten oder stoppen" disabled><i></i></button>
+      <div class="recside"></div>
+    </div>
+  </div>
+
+  <div class="sheet" id="kSettings" hidden><div class="sheet-inner">
+    <div class="sheethead"><h2>Einstellungen</h2><button class="iconbtn" type="button" data-close aria-label="Schließen">×</button></div>
+    <div id="kControls"></div>
+    <button class="btn ghost wide" type="button" data-switch>Rolle wechseln</button>
+  </div></div>
+
+  <div class="sheet" id="kClips" hidden><div class="sheet-inner">
+    <div class="sheethead"><h2>Aufnahmen</h2><button class="iconbtn" type="button" data-close aria-label="Schließen">×</button></div>
+    <p class="muted small" id="saveHint"></p>
+    <div id="clipList"></div>
+  </div></div>
+
+  <div class="sheet" id="kPlayer" hidden><div class="sheet-inner">
+    <div class="sheethead"><h2 id="kPlayerTitle">Aufnahme</h2><button class="iconbtn" type="button" data-close aria-label="Schließen">×</button></div>
+    <video id="vPlay" controls playsinline></video>
+  </div></div>
+
+  <div id="dim" hidden><span id="dimInfo">Tippen zum Aufhellen</span></div>
+</section>
+
+<section id="monitor" class="screen offline" hidden>
+  <div class="stage" id="mStage">
+    <div class="frame" id="mFrame">
+      <video id="vRemote" playsinline muted autoplay></video>
+      <div class="ov grid" id="mGrid" hidden>
+        <i style="left:33.333%;top:0;bottom:0;width:1px"></i><i style="left:66.666%;top:0;bottom:0;width:1px"></i>
+        <i style="top:33.333%;left:0;right:0;height:1px"></i><i style="top:66.666%;left:0;right:0;height:1px"></i>
+      </div>
+      <div class="ov zones" id="mZones" hidden>
+        <i style="left:0;right:0;top:0;height:14%"></i>
+        <i style="left:0;right:0;top:80%;bottom:0"></i>
+        <i style="left:84.72%;right:0;top:30%;height:50%"></i>
+      </div>
+    </div>
+    <p class="waiting" id="mWaiting">Warte auf das Bild …</p>
+  </div>
+  <div class="bar top">
+    <span class="pill" id="mStatus" data-s="wait"><i class="dot"></i><span>Nicht verbunden</span></span>
+    <span class="spacer"></span>
+    <button class="chip" id="mFull" type="button" hidden>Vollbild</button>
+  </div>
+  <div class="bar bottom">
+    <div class="chips">
+      <button class="chip" id="mMirror" type="button" aria-pressed="true">Spiegeln</button>
+      <button class="chip" id="mGridBtn" type="button" aria-pressed="false">Raster</button>
+      <button class="chip" id="mZonesBtn" type="button" aria-pressed="false">Insta-Zonen</button>
+      <button class="chip" id="mSetBtn" type="button">Kamera</button>
+    </div>
+    <div class="recrow">
+      <div class="recinfo"><div class="timer"><i class="r"></i><span id="mTimer">0:00</span></div><div class="meter" id="mMeter"><i></i></div></div>
+      <button class="rec" id="mRec" type="button" aria-pressed="false" aria-label="Aufnahme am Kamera-Handy starten oder stoppen" disabled><i></i></button>
+      <div class="recside" id="mClips"></div>
+    </div>
+  </div>
+
+  <form class="card" id="mConnect" hidden novalidate>
+    <h2>Mit dem Kamera-Handy verbinden</h2>
+    <p class="muted small">Den Code zeigt das Handy, das filmt.</p>
+    <input id="mCodeIn" class="codeinput" maxlength="7" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" placeholder="ABC 123" aria-label="Code vom Kamera-Handy">
+    <p class="err" id="mErr"></p>
+    <button class="btn primary wide" type="submit">Verbinden</button>
+    <button class="btn wide" type="button" id="mLast" hidden></button>
+    <button class="btn ghost wide" type="button" data-switch>Zurück</button>
+  </form>
+
+  <div class="sheet" id="mSettings" hidden><div class="sheet-inner">
+    <div class="sheethead"><h2>Kamera einstellen</h2><button class="iconbtn" type="button" data-close aria-label="Schließen">×</button></div>
+    <div id="mControls"><p class="muted">Noch nicht verbunden.</p></div>
+    <button class="btn wide" type="button" id="mChangeCode">Anderen Code eingeben</button>
+  </div></div>
+</section>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<noscript><p style="padding:16px">Ohne JavaScript geht diese Seite nicht.</p></noscript>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js" integrity="sha384-nlUQ8ZqCbvStErob+biJNzSgltf6urV3VGqhfIfzhmg9RXmpeRm76ELw0pYnKlTR" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU" crossorigin="anonymous"></script>
+<script>
+'use strict';
+
+/* ---------- Grundlagen ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const TEST = new URLSearchParams(location.search).has('test');   // Testbild statt Kamera, nur zum Ausprobieren am PC
+const UA = navigator.userAgent;
+const IS_IOS = /iPad|iPhone|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const WEBKIT = IS_IOS || (/Safari\//.test(UA) && !/Chrome|Chromium|CriOS|Edg|Android/.test(UA));
+const ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // 32 Zeichen, ohne I, O, 0, 1
+const PREFIX = 'jwkam-';
+// Keine STUN- oder TURN-Server: Die Handys verbinden sich nur direkt, das Bild läuft über keinen fremden Rechner.
+// debug 0: Das erwartbare „Kamera nicht gefunden“ beim Neuverbinden landet nicht als Fehler in der Konsole.
+const PEER_OPTS = { config: { iceServers: [] }, debug: 0 };
+const QUAL = {
+  '1080p30': { label: '1080p, 30 Bilder/s', w: 1920, h: 1080, fps: 30, bps: 16e6 },
+  '1080p60': { label: '1080p, 60 Bilder/s', w: 1920, h: 1080, fps: 60, bps: 24e6 },
+  '4k30':    { label: '4K, 30 Bilder/s',    w: 3840, h: 2160, fps: 30, bps: 45e6 },
+};
+const SET_KEYS = ['quality', 'lens', 'mic', 'zoom', 'exposureCompensation', 'torch'];
+
+const ls = {
+  get(k, d = null) { try { const v = localStorage.getItem('km.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('km.' + k, JSON.stringify(v)); } catch {} },
+};
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function btn(text, cls, fn) { const b = el('button', 'btn' + (cls ? ' ' + cls : ''), text); b.type = 'button'; b.onclick = fn; return b; }
+function newCode() { return Array.from(crypto.getRandomValues(new Uint8Array(6)), n => ALPHA[n & 31]).join(''); }
+function b64url(bytes) { return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function newSecret() { return b64url(crypto.getRandomValues(new Uint8Array(16))); }   // 128 Bit
+function cleanSecret(s) { return typeof s === 'string' && /^[A-Za-z0-9_-]{22}$/.test(s) ? s : ''; }
+function uid() { return crypto.randomUUID ? crypto.randomUUID() : newSecret(); }
+const hasQual = v => typeof v === 'string' && Object.prototype.hasOwnProperty.call(QUAL, v);
+// Beweis, dass jemand den Schlüssel kennt, ohne ihn zu verschicken
+async function proof(secret, nonce, role) {
+  const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret + '|' + nonce + '|' + role));
+  return b64url(new Uint8Array(h));
+}
+function cleanCode(s) { const c = String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); return c.length === 6 && [...c].every(ch => ALPHA.includes(ch)) ? c : ''; }
+function prettyCode(c) { return c.slice(0, 3) + ' ' + c.slice(3); }
+function fmtDur(ms) { const s = Math.max(0, Math.floor(ms / 1000)); const m = Math.floor(s / 60); return m + ':' + String(s % 60).padStart(2, '0'); }
+function fmtSize(b) { return b >= 1e9 ? (b / 1e9).toFixed(2).replace('.', ',') + ' GB' : Math.max(0.1, b / 1e6).toFixed(1).replace('.', ',') + ' MB'; }
+function stamp(d = new Date()) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`; }
+function num(x, d) { x = Number(x); return Number.isFinite(x) ? x : d; }
+function list(x) { return Array.isArray(x) ? x.filter(i => i && typeof i.id === 'string').map(i => ({ id: i.id, label: String(i.label || '').slice(0, 80) })) : []; }
+let toastT = 0;
+function toast(msg, ms = 2800) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
+function show(id) { document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== id; }); }
+function setPill(pill, kind, text) { pill.dataset.s = kind; pill.lastElementChild.textContent = text; }
+function setMeter(m, peak) {
+  const db = peak > 0 ? 20 * Math.log10(peak) : -100;
+  m.firstElementChild.style.width = Math.max(0, Math.min(100, (db + 60) / 60 * 100)) + '%';
+  m.classList.toggle('hot', db > -3);
+}
+
+let wakeWanted = false;
+async function keepAwake() {
+  wakeWanted = true;
+  try { if ('wakeLock' in navigator && document.visibilityState === 'visible') await navigator.wakeLock.request('screen'); } catch {}
+}
+let actx = null;
+function audioCtx() {
+  try {
+    if (!actx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; actx = new AC(); }
+    if (actx.state !== 'running') actx.resume().catch(() => {});
+  } catch { return null; }
+  return actx;
+}
+
+/* ---------- Einstellungen als Bedienelemente (für beide Handys) ---------- */
+function renderControls(box, s, set) {
+  box.replaceChildren();
+  const locked = !!s.rec || !!s.busy;
+  const caps = s.caps && typeof s.caps === 'object' ? s.caps : {};
+  const addSelect = (label, items, value, key) => {
+    const f = el('div', 'field'), id = box.id + '-' + key;
+    const l = el('label', '', label); l.htmlFor = id;
+    const sel = el('select'); sel.id = id; sel.disabled = locked;
+    for (const it of items) { const o = el('option', '', it.label); o.value = it.id; if (it.id === value) o.selected = true; sel.append(o); }
+    sel.onchange = () => set(key, sel.value);
+    f.append(l, sel); box.append(f);
+  };
+  const addRange = (label, key, fmt) => {
+    const c = caps[key]; if (!c) return;
+    const min = num(c.min, 0), max = num(c.max, 1), step = num(c.step, 0.1) || 0.1;
+    const f = el('div', 'field'), id = box.id + '-' + key;
+    const l = el('label'); l.htmlFor = id;
+    const r = el('input'); r.type = 'range'; r.id = id; r.min = min; r.max = max; r.step = step; r.value = num(c.value, min); r.dataset.key = key;
+    const upd = () => { l.textContent = label + ': ' + fmt(+r.value); };
+    let last = 0, tm = 0;
+    r.addEventListener('input', () => {
+      upd(); clearTimeout(tm);
+      const now = performance.now();
+      if (now - last > 120) { last = now; set(key, +r.value); }
+      else tm = setTimeout(() => { last = performance.now(); set(key, +r.value); }, 130);
+    });
+    r.addEventListener('change', () => { clearTimeout(tm); set(key, +r.value); });
+    r.addEventListener('pointerdown', () => { r.dataset.drag = '1'; });
+    const end = () => { delete r.dataset.drag; };
+    r.addEventListener('pointerup', end); r.addEventListener('pointercancel', end); r.addEventListener('blur', end);
+    r.addEventListener('sync', upd);
+    upd(); f.append(l, r); box.append(f);
+  };
+  const lenses = list(s.lenses), mics = list(s.mics);
+  if (lenses.length > 1) addSelect('Linse', lenses, s.lens, 'lens');
+  addSelect('Qualität', Object.entries(QUAL).map(([id, q]) => ({ id, label: q.label })), s.quality, 'quality');
+  if (mics.length > 1) addSelect('Mikrofon', mics, s.mic, 'mic');
+  addRange('Zoom', 'zoom', v => v.toFixed(1).replace('.', ',') + '×');
+  addRange('Helligkeit', 'exposureCompensation', v => (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ','));
+  if (caps.torch) {
+    const on = !!caps.torch.value;
+    const f = el('div', 'field');
+    f.append(el('label', '', 'Licht'), btn(on ? 'Licht aus' : 'Licht an', on ? 'primary' : '', () => set('torch', !on)));
+    box.append(f);
+  }
+  const a = s.actual || {};
+  if (a.w && a.h) box.append(el('p', 'muted small', `Läuft gerade mit ${a.w} × ${a.h}${a.fps ? ', ' + a.fps + ' Bilder/s' : ''}${s.mime ? ', speichert als ' + s.mime : ''}.`));
+  if (!caps.zoom && !caps.exposureCompensation) box.append(el('p', 'muted small', 'Zoom und Helligkeit gibt der Browser auf diesem Handy nicht frei.'));
+  if (locked && s.rec) box.append(el('p', 'muted small', 'Während der Aufnahme bleiben Linse, Qualität und Mikrofon fest.'));
+}
+// Nur neu zeichnen, wenn sich etwas Grundlegendes ändert. Sonst würde ein Regler beim Ziehen springen.
+function syncControls(box, s, set) {
+  const caps = s.caps || {};
+  const sig = JSON.stringify([s.lenses, s.mics, Object.keys(caps), s.quality, s.lens, s.mic, !!s.rec, !!s.busy, caps.torch && caps.torch.value, s.actual, s.mime]);
+  if (box._sig !== sig) { box._sig = sig; renderControls(box, s, set); return; }
+  box.querySelectorAll('input[type=range]').forEach(r => {
+    if (r.dataset.drag || document.activeElement === r) return;
+    const c = caps[r.dataset.key];
+    if (c && +r.value !== num(c.value, +r.value)) { r.value = c.value; r.dispatchEvent(new Event('sync')); }
+  });
+}
+
+/* ---------- Gespeicherte Aufnahmen (IndexedDB) ---------- */
+let dbP = null;
+function db() {
+  if (!dbP) dbP = new Promise((res, rej) => {
+    const r = indexedDB.open('kamera-monitor', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('clips', { keyPath: 'id' });
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  return dbP;
+}
+function idbRun(mode, fn) {
+  return db().then(d => new Promise((res, rej) => {
+    const tx = d.transaction('clips', mode); const req = fn(tx.objectStore('clips'));
+    tx.oncomplete = () => res(req && req.result); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
+  }));
+}
+async function idbPut(c) { try { await idbRun('readwrite', s => s.put({ id: c.id, name: c.name, type: c.type, size: c.size, dur: c.dur, created: c.created, blob: c.blob })); return true; } catch (e) { console.warn('Speichern im Browser ging nicht', e); return false; } }
+async function idbAll() { try { return (await idbRun('readonly', s => s.getAll())) || []; } catch { return []; } }
+async function idbDel(id) { try { await idbRun('readwrite', s => s.delete(id)); } catch {} }
+
+/* ================= KAMERA-HANDY ================= */
+const cam = {
+  stream: null, peer: null, conn: null, call: null, code: '', rec: null, recStart: 0, clips: [], lenses: [], mics: [],
+  caps: {}, actual: {}, busy: false, ticks: 0, retryT: 0, analyser: null, meterSrc: null, meterBuf: null, fakeTimer: 0,
+  settings: { quality: ls.get('quality', '1080p30'), lens: ls.get('lens', ''), mic: ls.get('mic', '') },
+};
+if (!hasQual(cam.settings.quality)) cam.settings.quality = '1080p30';
+const vLocal = $('#vLocal');
+
+function setKStatus(kind, text) { setPill($('#kStatus'), kind, text); }
+
+async function startKamera() {
+  show('kamera'); keepAwake(); audioCtx();
+  if (!TEST && (!window.isSecureContext || !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia))) {
+    camError({ name: 'Insecure' }); return;
+  }
+  try { await openCamera(); } catch (e) { camError(e); return; }
+  $('#kRec').disabled = false;
+  await listDevices();
+  refreshKControls();
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+  loadClips();
+  startKameraPeer();
+  setInterval(camTick, 100);
+  if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices) {
+    navigator.mediaDevices.addEventListener('devicechange', async () => { await listDevices(); refreshKControls(); sendState(); });
+  }
+}
+
+function camError(e) {
+  const msgs = {
+    NotAllowedError: 'Kein Zugriff auf Kamera und Mikrofon. Erlaube beides für diese Seite (iPhone: „aA“ links in der Adresszeile, dann Website-Einstellungen. Android: Schloss-Symbol in der Adresszeile) und tippe dann auf „Nochmal versuchen“.',
+    NotFoundError: 'Auf diesem Handy wurde keine Kamera gefunden.',
+    NotReadableError: 'Die Kamera wird gerade von einer anderen App benutzt. Schließ die Kamera-App oder den Videoanruf und versuch es nochmal.',
+    Insecure: 'Die Seite muss über https laufen, sonst gibt der Browser die Kamera nicht frei.',
+  };
+  $('#kErrMsg').textContent = msgs[e && e.name] || ('Fehler: ' + ((e && (e.message || e.name)) || 'unbekannt'));
+  $('#kError').hidden = false;
+  setKStatus('bad', 'Kamera aus');
+}
+
+function videoTrack() { return cam.stream && cam.stream.getVideoTracks()[0]; }
+
+async function openCamera() {
+  cam.busy = true; sendState();
+  if (cam.stream) cam.stream.getTracks().forEach(t => t.stop());   // Handys können meist nur eine Kamera gleichzeitig öffnen
+  cam.stream = null;
+  const q = QUAL[cam.settings.quality];
+  let s;
+  try {
+    if (TEST) s = fakeStream();
+    else {
+      const video = { width: { ideal: q.w }, height: { ideal: q.h }, frameRate: { ideal: q.fps } };
+      if (cam.settings.lens) video.deviceId = { exact: cam.settings.lens }; else video.facingMode = { ideal: 'environment' };
+      // Roher Ton ohne Telefon-Filter, klingt für Videos natürlicher
+      const audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+      if (cam.settings.mic) audio.deviceId = { exact: cam.settings.mic };
+      try { s = await navigator.mediaDevices.getUserMedia({ video, audio }); }
+      catch (e) {
+        if (e.name !== 'OverconstrainedError' && e.name !== 'NotFoundError') throw e;
+        // Gemerkte Linse oder Mikrofon gibt es nicht mehr: mit der Standard-Hauptkamera weiter
+        cam.settings.lens = ''; cam.settings.mic = ''; ls.set('lens', ''); ls.set('mic', '');
+        delete video.deviceId; video.facingMode = { ideal: 'environment' }; delete audio.deviceId;
+        s = await navigator.mediaDevices.getUserMedia({ video, audio });
+      }
+    }
+  } finally { cam.busy = false; }
+  cam.stream = s;
+  const vt = s.getVideoTracks()[0], at = s.getAudioTracks()[0];
+  vt.addEventListener('ended', onTrackEnded);
+  const vs = vt.getSettings ? vt.getSettings() : {};
+  if (vs.deviceId && !TEST) cam.settings.lens = vs.deviceId;
+  const as = at && at.getSettings ? at.getSettings() : {};
+  if (as.deviceId && !TEST) cam.settings.mic = as.deviceId;
+  vLocal.srcObject = s; vLocal.play().catch(() => {});
+  setupMeter(at);
+  await new Promise(r => { if (vLocal.readyState >= 1) r(); else { vLocal.onloadedmetadata = () => r(); setTimeout(r, 1500); } });
+  readCaps();
+  $('#kError').hidden = true;
+  await replaceInCall();
+}
+vLocal.addEventListener('resize', () => { readCaps(); refreshKControls(); sendState(); });
+
+function onTrackEnded() {
+  if (cam.rec) stopRec();
+  setKStatus('bad', 'Kamera unterbrochen');
+  camError({ message: 'Die Kamera wurde vom Handy unterbrochen, zum Beispiel durch Sperren oder einen Anruf. Eine laufende Aufnahme wurde gesichert.' });
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (wakeWanted) keepAwake();
+  // Nach dem Zurückkommen zeichnen manche Browser ein Video nicht neu. Neu anhängen weckt es auf.
+  for (const v of [vLocal, vRemote]) {
+    const s = v.srcObject;
+    if (s) { v.srcObject = null; v.srcObject = s; v.play().catch(() => {}); }
+  }
+  const vt = videoTrack();
+  if (vt && vt.readyState === 'ended') openCamera().then(() => { setKStatus(cam.conn && cam.conn.open ? 'ok' : 'wait', cam.conn && cam.conn.open ? 'Monitor verbunden' : 'Warte auf das zweite Handy'); }).catch(camError);
+});
+
+async function listDevices() {
+  if (TEST) { cam.lenses = [{ id: 'test', label: 'Testbild' }]; cam.mics = [{ id: 'test', label: 'Testton' }]; return; }
+  try {
+    const d = await navigator.mediaDevices.enumerateDevices();
+    const front = l => /front|vorder|user|selfie|facetime/i.test(l);
+    cam.lenses = d.filter(x => x.kind === 'videoinput' && x.deviceId)
+      .map((x, i) => ({ id: x.deviceId, label: x.label || ('Kamera ' + (i + 1)), f: front(x.label) }))
+      .sort((a, b) => a.f - b.f).map(({ id, label }) => ({ id, label }));
+    cam.mics = d.filter(x => x.kind === 'audioinput' && x.deviceId)
+      .map((x, i) => ({ id: x.deviceId, label: x.label || ('Mikrofon ' + (i + 1)) }));
+  } catch {}
+}
+
+function readCaps() {
+  const vt = videoTrack(); const caps = {};
+  if (vt && vt.getCapabilities) {
+    try {
+      const c = vt.getCapabilities(), s = vt.getSettings();
+      for (const k of ['zoom', 'exposureCompensation']) {
+        if (c[k] && c[k].max > c[k].min) caps[k] = { min: c[k].min, max: c[k].max, step: c[k].step || 0.1, value: s[k] != null ? s[k] : (k === 'zoom' ? c[k].min : 0) };
+      }
+      if (c.torch) caps.torch = { value: !!s.torch };
+    } catch {}
+  }
+  cam.caps = caps;
+  const st = vt && vt.getSettings ? vt.getSettings() : {};
+  cam.actual = { w: vLocal.videoWidth || st.width || 0, h: vLocal.videoHeight || st.height || 0, fps: Math.round(st.frameRate || 0) };
+}
+
+function setupMeter(track) {
+  if (cam.meterSrc) { try { cam.meterSrc.disconnect(); } catch {} }
+  cam.analyser = null; cam.meterSrc = null;
+  const ac = audioCtx(); if (!track || !ac) return;
+  try {
+    const src = ac.createMediaStreamSource(new MediaStream([track]));
+    const an = ac.createAnalyser(); an.fftSize = 1024; src.connect(an);
+    cam.meterSrc = src; cam.analyser = an; cam.meterBuf = new Float32Array(an.fftSize);
+  } catch {}
+}
+function readLevel() {
+  if (!cam.analyser) return 0;
+  cam.analyser.getFloatTimeDomainData(cam.meterBuf);
+  let p = 0; for (let i = 0; i < cam.meterBuf.length; i++) { const a = Math.abs(cam.meterBuf[i]); if (a > p) p = a; }
+  return p;
+}
+
+function fakeStream() {
+  const c = el('canvas'); c.width = 540; c.height = 960; const g = c.getContext('2d'); const t0 = performance.now();
+  clearInterval(cam.fakeTimer);
+  cam.fakeTimer = setInterval(() => {
+    const t = (performance.now() - t0) / 1000;
+    g.fillStyle = '#14203a'; g.fillRect(0, 0, 540, 960);
+    g.fillStyle = '#597fd9'; g.beginPath(); g.arc(270 + 170 * Math.sin(t * 1.3), 480 + 300 * Math.cos(t * 0.9), 70, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff'; g.font = '600 44px system-ui'; g.fillText('Testbild ' + t.toFixed(1) + ' s', 40, 90);
+  }, 33);
+  const tracks = [...c.captureStream(30).getVideoTracks()];
+  const ac = audioCtx();
+  if (ac) {
+    const o = ac.createOscillator(), gn = ac.createGain(), d = ac.createMediaStreamDestination();
+    o.frequency.value = 440; gn.gain.value = 0.08; o.connect(gn).connect(d); o.start();
+    tracks.push(...d.stream.getAudioTracks());
+  }
+  return new MediaStream(tracks);
+}
+
+function camTick() {
+  const peak = readLevel();
+  setMeter($('#kMeter'), peak);
+  if (cam.rec) {
+    const t = fmtDur(Date.now() - cam.recStart);
+    $('#kTimer').textContent = t; $('#dimInfo').textContent = 'Aufnahme läuft ' + t;
+  }
+  sendCam({ t: 'lvl', v: Math.round(peak * 1000) / 1000 });
+  if (++cam.ticks % 20 === 0) sendState();   // alle 2 s, hält die Verbindung lebendig
+}
+
+/* --- Koppeln --- */
+function startKameraPeer() {
+  cam.code = cleanCode(ls.get('code', ''));
+  cam.secret = cleanSecret(ls.get('secret', ''));
+  if (!cam.code || !cam.secret) { cam.code = newCode(); cam.secret = newSecret(); ls.set('code', cam.code); ls.set('secret', cam.secret); }
+  showPairing(true);
+  makeCamPeer();
+}
+function makeCamPeer() {
+  if (typeof Peer === 'undefined') { setKStatus('bad', 'Koppel-Dienst nicht geladen. Internet prüfen, neu laden.'); return; }
+  try { if (cam.peer) cam.peer.destroy(); } catch {}
+  const p = new Peer(PREFIX + cam.code.toLowerCase(), PEER_OPTS);
+  cam.peer = p;
+  if (!(cam.conn && cam.conn.open)) setKStatus('wait', 'Verbinde mit dem Koppel-Dienst …');
+  p.on('open', () => { if (!(cam.conn && cam.conn.open)) setKStatus('wait', 'Bereit. Warte auf das zweite Handy'); });
+  p.on('connection', onMonitorConn);
+  p.on('disconnected', () => retryCam(p, 2000));
+  p.on('error', err => {
+    if (p !== cam.peer) return;
+    if (err.type === 'unavailable-id') { setKStatus('wait', 'Code noch belegt, gleich nochmal …'); clearTimeout(cam.retryT); cam.retryT = setTimeout(makeCamPeer, 5000); }
+    else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(err.type)) {
+      if (!(cam.conn && cam.conn.open)) setKStatus('bad', 'Kein Internet zum Koppeln. Hat das WLAN Internet?');
+      retryCam(p, 4000);
+    } else console.warn('Peer', err.type, err);
+  });
+}
+function retryCam(p, ms) {
+  clearTimeout(cam.retryT);
+  cam.retryT = setTimeout(() => { if (p !== cam.peer) return; if (p.destroyed) makeCamPeer(); else if (p.disconnected) p.reconnect(); }, ms);
+}
+/* Jedes neue Handy muss sich ausweisen, bevor es Bild bekommt oder etwas steuern darf:
+   Mit dem Schlüssel aus dem QR-Code geht das automatisch. Wer nur den Code eintippt,
+   muss am Kamera-Handy einmal mit „Erlauben“ bestätigt werden und bekommt dann den Schlüssel.
+   Der bisherige Monitor bleibt verbunden, bis das neue Handy angenommen ist. */
+function onMonitorConn(conn) {
+  const p = { conn, nonce: newSecret(), done: false };
+  const kill = () => { if (!p.done) { p.done = true; try { conn.close(); } catch {} } };
+  p.timer = setTimeout(kill, 8000);   // wer sich nicht meldet, fliegt raus
+  conn.on('open', () => { try { conn.send({ t: 'challenge', n: p.nonce }); } catch {} });
+  conn.on('data', async d => {
+    if (cam.conn === conn) { onMonitorMsg(d); return; }
+    if (p.done || p.busy || !d || d.t !== 'auth' || typeof d.n !== 'string' || d.n.length > 64) return;
+    p.busy = true;
+    if (typeof d.p === 'string') {
+      if (d.p === await proof(cam.secret, p.nonce, 'm')) acceptMonitor(p, { t: 'ok', p: await proof(cam.secret, d.n, 'c') });
+      else kill();
+    } else askApproval(p, kill);
+  });
+  conn.on('close', () => {
+    p.done = true; clearTimeout(p.timer);
+    if (cam.ask === p) hideApproval();
+    if (cam.conn !== conn) return;
+    cam.conn = null;
+    if (cam.call) { try { cam.call.close(); } catch {} cam.call = null; }
+    setKStatus('wait', 'Getrennt. Warte auf das zweite Handy');
+  });
+  conn.on('error', () => {});
+}
+function acceptMonitor(p, okMsg) {
+  if (p.done) return;
+  p.done = true; clearTimeout(p.timer);
+  const conn = p.conn;
+  if (cam.conn && cam.conn !== conn) { const o = cam.conn; cam.conn = null; try { o.close(); } catch {} }
+  if (cam.call) { try { cam.call.close(); } catch {} cam.call = null; }
+  cam.conn = conn;
+  try { conn.send(okMsg); } catch {}
+  setKStatus('ok', 'Monitor verbunden'); showPairing(false); toast('Zweites Handy ist verbunden');
+  sendState(); startCall(conn.peer);
+}
+function askApproval(p, kill) {
+  if (cam.ask && cam.ask !== p) { kill(); return; }   // immer nur eine Anfrage gleichzeitig
+  clearTimeout(p.timer);
+  p.timer = setTimeout(() => { if (cam.ask === p) hideApproval(); kill(); }, 60000);
+  cam.ask = p;
+  $('#kAsk').hidden = false;
+  $('#kAskYes').onclick = () => { hideApproval(); acceptMonitor(p, { t: 'ok', k: cam.secret }); };
+  $('#kAskNo').onclick = () => { hideApproval(); kill(); };
+}
+function hideApproval() { cam.ask = null; $('#kAsk').hidden = true; }
+function startCall(peerId) {
+  const vt = videoTrack(); if (!vt || !cam.peer) return;
+  const call = cam.peer.call(peerId, new MediaStream([vt]));   // nur Bild, kein Ton: sonst gibt es Rückkopplung
+  if (!call) return;
+  cam.call = call;
+  const watch = (n = 0) => {
+    const pc = call.peerConnection;
+    if (!pc) { if (n < 50) setTimeout(() => watch(n + 1), 100); return; }
+    pc.addEventListener('connectionstatechange', () => { if (pc.connectionState === 'connected') tunePreview(); });
+  };
+  watch();
+  call.on('close', () => { if (cam.call === call) cam.call = null; });
+  call.on('error', () => {});
+}
+function videoSender() {
+  const pc = cam.call && cam.call.peerConnection; if (!pc) return null;
+  return pc.getSenders().find(s => !s.track || s.track.kind === 'video') || null;
+}
+// Das Vorschaubild wird verkleinert geschickt (lange Seite ca. 1280 px). Die Aufnahme selbst bleibt in voller Qualität.
+async function tunePreview() {
+  const sender = videoSender(); if (!sender || !sender.track) return;
+  try {
+    const st = sender.track.getSettings();
+    const long = Math.max(st.width || 1280, st.height || 720);
+    const p = sender.getParameters();
+    if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+    p.encodings[0].scaleResolutionDownBy = Math.max(1, long / 1280);
+    p.encodings[0].maxBitrate = 3000000;
+    await sender.setParameters(p);
+  } catch (e) { console.warn('Vorschau anpassen ging nicht', e); }
+}
+async function replaceInCall() {
+  const sender = videoSender(), vt = videoTrack();
+  if (!sender || !vt) return;
+  try { await sender.replaceTrack(vt); await tunePreview(); }
+  catch (e) {
+    console.warn(e);
+    if (cam.conn && cam.conn.open) { try { cam.call.close(); } catch {} startCall(cam.conn.peer); }
+  }
+}
+function sendCam(msg) { if (cam.conn && cam.conn.open) { try { cam.conn.send(msg); } catch {} } }
+function camState() {
+  return {
+    t: 'state', rec: !!cam.rec, recMs: cam.rec ? Date.now() - cam.recStart : 0, busy: !!cam.busy,
+    quality: cam.settings.quality, lens: cam.settings.lens, mic: cam.settings.mic,
+    lenses: cam.lenses, mics: cam.mics, caps: cam.caps, actual: cam.actual, clips: cam.clips.length, mime: mimeLabel(),
+  };
+}
+function sendState() { sendCam(camState()); }
+function onMonitorMsg(d) {
+  if (!d || typeof d !== 'object') return;
+  if (d.t === 'rec') { d.on ? startRec() : stopRec(); }
+  else if (d.t === 'set' && SET_KEYS.includes(d.k)) applySetting(d.k, d.v);
+  else if (d.t === 'hello') sendState();
+}
+
+async function applySetting(k, v) {
+  if (k === 'quality' || k === 'lens' || k === 'mic') {
+    if (cam.rec || cam.busy) { sendState(); return; }
+    if (k === 'quality' && !hasQual(v)) return;
+    if (k !== 'quality' && !(k === 'lens' ? cam.lenses : cam.mics).some(x => x.id === v)) return;
+    cam.settings[k] = v; ls.set(k, v);
+    try { await openCamera(); } catch (e) { camError(e); return; }
+    refreshKControls(); sendState();
+    return;
+  }
+  const vt = videoTrack(), cap = cam.caps[k];
+  if (!vt || !cap) return;
+  let val;
+  if (k === 'torch') val = !!v;
+  else { val = Number(v); if (!Number.isFinite(val)) return; val = Math.min(cap.max, Math.max(cap.min, val)); }
+  try { await vt.applyConstraints({ advanced: [{ [k]: val }] }); } catch (e) { console.warn(e); }
+  readCaps(); refreshKControls(); sendState();
+}
+function refreshKControls() { syncControls($('#kControls'), camState(), applySetting); }
+
+/* --- Aufnehmen --- */
+function pickMime() {
+  if (!window.MediaRecorder) return null;
+  // MP4 zuerst, das versteht jedes Schnittprogramm. avc3 (Chrome) bleibt auch heil, wenn sich die Bildgröße
+  // mitten in der Aufnahme ändert, etwa beim Drehen. WebM mit H.264 bzw. VP8 nutzt auf Android meist den Hardware-Encoder.
+  const opts = ['video/mp4;codecs=avc3,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=h264,opus', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm'];
+  for (const m of opts) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch {} }
+  return '';
+}
+function mimeLabel() { const m = pickMime(); return m === null ? '' : (m.includes('webm') ? 'WebM' : 'MP4'); }
+
+function startRec() {
+  if (cam.rec || !cam.stream || cam.busy) return;
+  const mime = pickMime();
+  if (mime === null) { toast('Dieser Browser kann nicht aufnehmen.'); return; }
+  const q = QUAL[cam.settings.quality];
+  const opts = { videoBitsPerSecond: q.bps, audioBitsPerSecond: 192000 };
+  if (mime) opts.mimeType = mime;
+  let mr;
+  try { mr = new MediaRecorder(cam.stream, opts); }
+  catch { try { mr = new MediaRecorder(cam.stream); } catch (e) { toast('Aufnahme startet nicht: ' + e.message); return; } }
+  const chunks = [], start = Date.now(), name = 'aufnahme-' + stamp();
+  mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+  mr.onstop = () => {
+    if (cam.rec === mr) { cam.rec = null; updateRecUI(); sendState(); }
+    finishClip(chunks, mr.mimeType || mime, Date.now() - start, name);
+  };
+  mr.onerror = e => toast('Fehler bei der Aufnahme' + (e.error && e.error.message ? ': ' + e.error.message : ''));
+  // Safari schreibt ohne Zeitscheiben in eine Zwischendatei, Chrome braucht Scheiben, damit nicht alles im Arbeitsspeicher liegt.
+  try { WEBKIT ? mr.start() : mr.start(1000); } catch (e) { toast('Aufnahme startet nicht: ' + e.message); return; }
+  cam.rec = mr; cam.recStart = start;
+  updateRecUI(); sendState();
+}
+function stopRec() {
+  const mr = cam.rec; if (!mr) return;
+  cam.rec = null; updateRecUI(); sendState();
+  try { if (mr.state !== 'inactive') mr.stop(); } catch {}
+}
+function updateRecUI() {
+  const on = !!cam.rec;
+  $('#kRec').setAttribute('aria-pressed', String(on));
+  $('#kamera').classList.toggle('recording', on);
+  $('#dim').classList.toggle('rec', on);
+  if (!on) { $('#kTimer').textContent = '0:00'; $('#dimInfo').textContent = 'Tippen zum Aufhellen'; }
+  refreshKControls();
+}
+async function finishClip(chunks, mime, durMs, name) {
+  const type = String(mime || (chunks[0] && chunks[0].type) || 'video/mp4').split(';')[0];
+  const blob = new Blob(chunks, { type });
+  if (!blob.size) { toast('Die Aufnahme war leer.'); return; }
+  const ext = type.includes('mp4') ? 'mp4' : 'webm';
+  const clip = { id: uid(), name: name + '.' + ext, type, size: blob.size, dur: durMs, created: Date.now(), blob, saved: false, stored: false };
+  cam.clips.unshift(clip);
+  clip.stored = await idbPut(clip);
+  renderClips(); sendState();
+  sendCam({ t: 'clip', dur: durMs, size: blob.size });
+  toast(`Aufnahme fertig (${fmtDur(durMs)}, ${fmtSize(blob.size)})`);
+}
+
+/* --- Aufnahmen-Liste --- */
+function savedIds() { const v = ls.get('saved', []); return Array.isArray(v) ? v : []; }
+function canShareFiles() {
+  try { return !!(navigator.canShare && navigator.canShare({ files: [new File([''], 'x.mp4', { type: 'video/mp4' })] })); } catch { return false; }
+}
+async function loadClips() {
+  const saved = new Set(savedIds());
+  const stored = (await idbAll()).filter(c => c && c.blob).map(c => ({ ...c, stored: true, saved: saved.has(c.id) }));
+  const known = new Set(cam.clips.map(c => c.id));
+  cam.clips = cam.clips.concat(stored.filter(c => !known.has(c.id))).sort((a, b) => b.created - a.created);
+  renderClips(); sendState();
+}
+function renderClips() {
+  $('#kClipsCount').textContent = cam.clips.length;
+  const box = $('#clipList'); box.replaceChildren();
+  if (!cam.clips.length) { box.append(el('p', 'muted', 'Noch keine Aufnahmen.')); return; }
+  const share = canShareFiles();
+  for (const c of cam.clips) {
+    const item = el('div', 'clip');
+    const meta = el('div', 'meta', `${fmtDur(c.dur)}, ${fmtSize(c.size)}, `);
+    meta.append(c.saved ? el('span', '', 'gesichert') : el('span', 'no', 'noch nicht gesichert'));
+    if (!c.stored) meta.append(document.createTextNode(', nur bis zum Neuladen da'));
+    const acts = el('div', 'acts');
+    acts.append(btn('Ansehen', '', () => playClip(c)));
+    if (IS_IOS && share) acts.append(btn('In Fotos sichern', 'primary', () => shareClip(c)), btn('In Dateien', '', () => downloadClip(c)));
+    else { acts.append(btn('Herunterladen', 'primary', () => downloadClip(c))); if (share) acts.append(btn('Teilen', '', () => shareClip(c))); }
+    acts.append(btn('Löschen', 'danger', () => deleteClip(c)));
+    item.append(el('div', 'ctitle', c.name), meta, acts);
+    box.append(item);
+  }
+}
+function markSaved(c) {
+  c.saved = true;
+  const ids = savedIds(); if (!ids.includes(c.id)) { ids.push(c.id); ls.set('saved', ids.slice(-200)); }
+  renderClips();
+}
+async function shareClip(c) {
+  const file = new File([c.blob], c.name, { type: c.type });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); markSaved(c); }
+    else downloadClip(c);
+  } catch (e) { if (e && e.name !== 'AbortError') toast('Teilen ging nicht. Nimm „Herunterladen“.'); }
+}
+function downloadClip(c) {
+  const url = URL.createObjectURL(c.blob);
+  const a = el('a'); a.href = url; a.download = c.name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
+  markSaved(c);
+}
+function playClip(c) {
+  const v = $('#vPlay');
+  if (v.src) URL.revokeObjectURL(v.src);
+  v.src = URL.createObjectURL(c.blob);
+  $('#kPlayerTitle').textContent = c.name;
+  openSheet('kPlayer');
+  v.play().catch(() => {});
+}
+async function deleteClip(c) {
+  if (!confirm(c.saved ? 'Aufnahme löschen?' : 'Diese Aufnahme ist noch nicht gesichert. Trotzdem löschen?')) return;
+  cam.clips = cam.clips.filter(x => x !== c);
+  await idbDel(c.id);
+  ls.set('saved', savedIds().filter(id => id !== c.id));
+  renderClips(); sendState();
+}
+
+/* --- Kopplungs-Karte --- */
+function pairUrl() { return location.origin + location.pathname + '#m=' + cam.code + '.' + cam.secret; }
+function showPairing(on) {
+  $('#pairCard').hidden = !on;
+  if (!on) return;
+  $('#kCode').textContent = prettyCode(cam.code);
+  const box = $('#qr'); box.replaceChildren();
+  if (typeof QRCode === 'undefined') { box.textContent = 'QR-Code nicht geladen'; return; }
+  new QRCode(box, { text: pairUrl(), width: 184, height: 184, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+}
+
+/* ================= MONITOR-HANDY ================= */
+const mon = { peer: null, conn: null, call: null, code: '', secret: '', authed: false, expect: '', nonce: '', heldCall: null, failed: 0, last: 0, state: null, recBase: 0, dialT: 0, started: false };
+function keys() { const k = ls.get('keys', {}); return k && typeof k === 'object' && !Array.isArray(k) ? k : {}; }
+function saveKey(code, secret) { const k = keys(); if (secret) k[code] = secret; else delete k[code]; ls.set('keys', k); }
+const vRemote = $('#vRemote');
+function setMStatus(kind, text) { setPill($('#mStatus'), kind, text); $('#monitor').classList.toggle('offline', kind !== 'ok'); }
+
+function startMonitor(code) {
+  show('monitor'); keepAwake(); applyView();
+  if (document.fullscreenEnabled) $('#mFull').hidden = false;
+  if (!mon.started) { mon.started = true; setInterval(monTick, 250); }
+  if (code) monConnect(code); else openConnectCard();
+}
+function openConnectCard(msg) {
+  $('#mConnect').hidden = false;
+  const last = cleanCode(ls.get('lastCode', ''));
+  $('#mLast').hidden = !last;
+  if (last) { $('#mLast').textContent = 'Letzte Kamera: ' + prettyCode(last); $('#mLast').onclick = () => monConnect(last); }
+  $('#mErr').textContent = msg || '';
+}
+function monConnect(code) {
+  mon.code = code; ls.set('lastCode', code);
+  mon.secret = cleanSecret(keys()[code]);
+  $('#mConnect').hidden = true;
+  history.replaceState(null, '', location.pathname + location.search + '#m=' + code);
+  setMStatus('wait', 'Verbinde …');
+  if (typeof Peer === 'undefined') { setMStatus('bad', 'Koppel-Dienst nicht geladen. Internet prüfen, neu laden.'); return; }
+  if (!mon.peer || mon.peer.destroyed) makeMonPeer();
+  else if (mon.peer.open) dial();
+}
+function makeMonPeer() {
+  const p = new Peer(PEER_OPTS); mon.peer = p;
+  p.on('open', () => { if (mon.code) dial(); });
+  p.on('call', call => {
+    if (!mon.conn || call.peer !== mon.conn.peer) { try { call.close(); } catch {} return; }   // nur Bild von der eigenen Kamera
+    // Der Anruf kann vor der Bestätigung ankommen: kurz festhalten, angenommen wird erst nach der Prüfung
+    if (!mon.authed) { if (mon.heldCall) { try { mon.heldCall.close(); } catch {} } mon.heldCall = call; return; }
+    takeCall(call);
+  });
+  p.on('disconnected', () => { setTimeout(() => { if (p === mon.peer && !p.destroyed && p.disconnected) p.reconnect(); }, 2000); });
+  p.on('error', err => {
+    if (p !== mon.peer) return;
+    if (err.type === 'peer-unavailable') { setMStatus('bad', 'Kamera-Handy nicht gefunden. Ist die Seite dort offen?'); redial(3000); }
+    else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(err.type)) {
+      if (!(mon.conn && mon.conn.open)) setMStatus('bad', 'Kein Internet zum Koppeln. Hat das WLAN Internet?');
+    } else console.warn('Peer', err.type, err);
+  });
+}
+function takeCall(call) {
+  if (mon.call && mon.call !== call) { try { mon.call.close(); } catch {} }
+  mon.call = call;
+  call.answer();
+  call.on('stream', s => { if (mon.call !== call) return; vRemote.srcObject = s; vRemote.play().catch(() => {}); });
+  call.on('close', () => { if (mon.call === call) mon.call = null; });
+  call.on('error', () => {});
+}
+function dropHeldCall() { if (mon.heldCall) { try { mon.heldCall.close(); } catch {} mon.heldCall = null; } }
+async function onAuthMsg(conn, d) {
+  if (d.t === 'challenge' && typeof d.n === 'string' && d.n.length <= 64 && !mon.nonce) {
+    mon.nonce = newSecret();
+    const msg = { t: 'auth', n: mon.nonce };
+    if (mon.secret) { msg.p = await proof(mon.secret, d.n, 'm'); mon.expect = await proof(mon.secret, mon.nonce, 'c'); }
+    else setMStatus('wait', 'Bitte am Kamera-Handy auf „Erlauben“ tippen');
+    if (mon.conn === conn) { try { conn.send(msg); } catch {} }
+  } else if (d.t === 'ok' && mon.nonce) {
+    if (mon.secret ? d.p === mon.expect : cleanSecret(d.k)) {
+      if (!mon.secret) { mon.secret = cleanSecret(d.k); saveKey(mon.code, mon.secret); }
+      mon.authed = true; mon.failed = 0; mon.last = Date.now(); clearTimeout(mon.dialT);
+      setMStatus('ok', 'Verbunden');
+      if (mon.heldCall) { const c = mon.heldCall; mon.heldCall = null; takeCall(c); }
+      try { conn.send({ t: 'hello' }); } catch {}
+    } else {
+      // Unter diesem Code meldet sich ein Gerät, das den Schlüssel nicht kennt
+      saveKey(mon.code, ''); dropHeldCall();
+      mon.conn = null; try { conn.close(); } catch {}
+      setMStatus('bad', 'Unbekannte Kamera');
+      openConnectCard('Diese Kamera hat sich nicht richtig ausgewiesen. Scanne den QR-Code am Kamera-Handy neu.');
+    }
+  }
+}
+function dial() {
+  clearTimeout(mon.dialT);
+  if (!mon.peer || !mon.peer.open || !mon.code) return;
+  if (mon.conn) { const o = mon.conn; mon.conn = null; try { o.close(); } catch {} }
+  mon.authed = false; mon.nonce = ''; mon.expect = ''; dropHeldCall();
+  const conn = mon.peer.connect(PREFIX + mon.code.toLowerCase(), { serialization: 'json', reliable: true });
+  if (!conn) { redial(3000); return; }
+  mon.conn = conn;
+  conn.on('open', () => {
+    if (mon.conn !== conn) return;
+    clearTimeout(mon.dialT);
+    setMStatus('wait', 'Prüfe die Kamera …');
+  });
+  conn.on('data', d => {
+    if (mon.conn !== conn || !d || typeof d !== 'object') return;
+    if (mon.authed) onCamMsg(d); else onAuthMsg(conn, d);
+  });
+  conn.on('close', () => {
+    if (mon.conn !== conn) return;
+    mon.conn = null; dropHeldCall();
+    // Vor der Prüfung getrennt heißt meist: am Kamera-Handy abgelehnt oder zu lange nicht bestätigt
+    if (!mon.authed && mon.nonce && !mon.secret) { setMStatus('bad', 'Nicht erlaubt'); openConnectCard('Das Kamera-Handy hat die Verbindung nicht erlaubt. Nochmal versuchen und dort „Erlauben“ tippen, oder den QR-Code scannen.'); return; }
+    if (!mon.authed && mon.nonce && mon.secret && ++mon.failed >= 2) {
+      mon.failed = 0; saveKey(mon.code, '');
+      setMStatus('bad', 'Schlüssel passt nicht');
+      openConnectCard('Der gespeicherte Schlüssel passt nicht zu dieser Kamera. Scanne den QR-Code am Kamera-Handy neu.');
+      return;
+    }
+    setMStatus('wait', 'Verbindung weg, verbinde neu …'); redial(1500);
+  });
+  conn.on('error', () => {});
+  mon.dialT = setTimeout(() => {
+    if (mon.conn !== conn || conn.open) return;
+    setMStatus('bad', 'Keine direkte Verbindung. Sind beide Handys im selben WLAN?');
+    mon.conn = null; try { conn.close(); } catch {}
+    redial(2500);
+  }, 12000);
+}
+function redial(ms) {
+  clearTimeout(mon.dialT);
+  mon.dialT = setTimeout(() => {
+    const p = mon.peer;
+    if (!p || p.destroyed) makeMonPeer();
+    else if (p.open) dial();
+    else if (p.disconnected) p.reconnect();
+  }, ms);
+}
+function monTick() {
+  if (mon.conn && mon.conn.open && mon.authed && Date.now() - mon.last > 6000) {
+    setMStatus('wait', 'Kein Signal, verbinde neu …');
+    const o = mon.conn; mon.conn = null; try { o.close(); } catch {}
+    redial(500);
+  }
+  const s = mon.state;
+  $('#mTimer').textContent = s && s.rec ? fmtDur(Date.now() - mon.recBase) : '0:00';
+}
+function onCamMsg(d) {
+  if (!d || typeof d !== 'object') return;
+  mon.last = Date.now();
+  if (d.t === 'lvl') setMeter($('#mMeter'), num(d.v, 0));
+  else if (d.t === 'state') {
+    const prev = mon.state;
+    const base = Date.now() - num(d.recMs, 0);
+    if (d.rec && (!prev || !prev.rec || Math.abs(base - mon.recBase) > 1000)) mon.recBase = base;
+    mon.state = d;
+    $('#mRec').disabled = false;
+    $('#mRec').setAttribute('aria-pressed', String(!!d.rec));
+    $('#monitor').classList.toggle('recording', !!d.rec);
+    const n = Math.max(0, Math.floor(num(d.clips, 0)));
+    $('#mClips').textContent = n ? n + (n === 1 ? ' Aufnahme' : ' Aufnahmen') : '';
+    syncControls($('#mControls'), d, monSet);
+  }
+  else if (d.t === 'clip') toast(`Aufnahme liegt auf dem Kamera-Handy (${fmtDur(num(d.dur, 0))}, ${fmtSize(num(d.size, 0))})`, 4000);
+}
+function monSend(msg) { if (mon.conn && mon.conn.open) { try { mon.conn.send(msg); return true; } catch {} } return false; }
+function monSet(k, v) { monSend({ t: 'set', k, v }); }
+
+function fitFrame() {
+  const st = $('#mStage'), fr = $('#mFrame');
+  const vw = vRemote.videoWidth || 9, vh = vRemote.videoHeight || 16;
+  const k = Math.min(st.clientWidth / vw, st.clientHeight / vh);
+  fr.style.width = Math.round(vw * k) + 'px'; fr.style.height = Math.round(vh * k) + 'px';
+  $('#mZones').classList.toggle('na', vw > vh);   // Insta-Zonen gelten nur fürs Hochformat
+  if (vRemote.videoWidth) $('#mWaiting').hidden = true;
+}
+vRemote.addEventListener('loadedmetadata', fitFrame);
+vRemote.addEventListener('resize', fitFrame);
+addEventListener('resize', fitFrame);
+
+const view = { mirror: ls.get('mirror', true) !== false, grid: !!ls.get('grid', false), zones: !!ls.get('zones', false) };
+function applyView() {
+  $('#mFrame').classList.toggle('mirror', view.mirror);
+  $('#mGrid').hidden = !view.grid; $('#mZones').hidden = !view.zones;
+  $('#mMirror').setAttribute('aria-pressed', String(view.mirror));
+  $('#mGridBtn').setAttribute('aria-pressed', String(view.grid));
+  $('#mZonesBtn').setAttribute('aria-pressed', String(view.zones));
+  fitFrame();
+}
+function toggleView(k) { view[k] = !view[k]; ls.set(k, view[k]); applyView(); }
+
+/* ================= Bedienung ================= */
+function openSheet(id) {
+  const sc = $('#' + id).closest('.screen');
+  sc.querySelectorAll('.sheet').forEach(s => { if (s.id !== id) s.hidden = true; });
+  $('#' + id).hidden = false;
+}
+document.addEventListener('click', e => {
+  const c = e.target.closest('[data-close]');
+  if (c) { const sh = c.closest('.sheet'); sh.hidden = true; if (sh.id === 'kPlayer') { const v = $('#vPlay'); v.pause(); } return; }
+  if (e.target.closest('[data-switch]')) {
+    if (cam.rec && !confirm('Die Aufnahme läuft noch. Trotzdem wechseln?')) return;
+    location.assign(location.pathname + location.search);
+  }
+});
+
+$('#btnCam').onclick = startKamera;
+$('#btnMon').onclick = () => startMonitor('');
+
+$('#kRec').onclick = () => { cam.rec ? stopRec() : startRec(); };
+$('#kSetBtn').onclick = () => { refreshKControls(); openSheet('kSettings'); };
+$('#kClipsBtn').onclick = () => { $('#saveHint').textContent = IS_IOS
+    ? '„In Fotos sichern“ öffnet das Teilen-Menü. Dort „Video sichern“ wählen, dann liegt es in deiner Mediathek.'
+    : '„Herunterladen“ legt das Video in den Download-Ordner. Hier in der Liste bleibt es, bis du es löschst.';
+  renderClips(); openSheet('kClips'); };
+$('#kPairBtn').onclick = () => showPairing($('#pairCard').hidden);
+$('#kPairClose').onclick = () => showPairing(false);
+$('#kNewCode').onclick = () => {
+  if (!confirm('Neuen Code erstellen? Das zweite Handy muss dann neu koppeln.')) return;
+  if (cam.conn) { const o = cam.conn; cam.conn = null; try { o.close(); } catch {} }
+  cam.code = newCode(); cam.secret = newSecret(); ls.set('code', cam.code); ls.set('secret', cam.secret);
+  showPairing(true); makeCamPeer();
+};
+$('#kRetry').onclick = async () => {
+  $('#kError').hidden = true;
+  if (!cam.peer) { location.reload(); return; }
+  try { await openCamera(); setKStatus(cam.conn && cam.conn.open ? 'ok' : 'wait', cam.conn && cam.conn.open ? 'Monitor verbunden' : 'Warte auf das zweite Handy'); refreshKControls(); }
+  catch (e) { camError(e); }
+};
+$('#kDimBtn').onclick = () => { $('#dim').hidden = false; };
+$('#dim').onclick = () => { $('#dim').hidden = true; };
+
+$('#mRec').onclick = () => {
+  if (!mon.state || !monSend({ t: 'rec', on: !mon.state.rec })) { toast('Noch nicht verbunden'); return; }
+  if (navigator.vibrate && (!navigator.userActivation || navigator.userActivation.isActive)) navigator.vibrate(25);
+};
+$('#mMirror').onclick = () => toggleView('mirror');
+$('#mGridBtn').onclick = () => toggleView('grid');
+$('#mZonesBtn').onclick = () => { toggleView('zones'); if (view.zones && vRemote.videoWidth > vRemote.videoHeight) toast('Die Insta-Zonen gelten nur für Hochformat.'); };
+$('#mSetBtn').onclick = () => openSheet('mSettings');
+$('#mChangeCode').onclick = () => { $('#mSettings').hidden = true; openConnectCard(); };
+$('#mFull').onclick = () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else document.documentElement.requestFullscreen().catch(() => {}); };
+$('#mConnect').addEventListener('submit', e => {
+  e.preventDefault();
+  const c = cleanCode($('#mCodeIn').value);
+  if (!c) { $('#mErr').textContent = 'Der Code hat 6 Zeichen, so wie er auf dem Kamera-Handy steht.'; return; }
+  monConnect(c);
+});
+
+addEventListener('beforeunload', e => {
+  if (cam.rec || cam.clips.some(c => !c.saved && !c.stored)) { e.preventDefault(); e.returnValue = ''; }
+});
+addEventListener('pagehide', () => { try { if (cam.peer) cam.peer.destroy(); if (mon.peer) mon.peer.destroy(); } catch {} });
+
+(function init() {
+  if (window.top !== window.self) { document.body.replaceChildren(el('p', 'note', 'Diese Seite läuft nur direkt im Browser, nicht eingebettet.')); return; }
+  const m = /[#&]m=([A-Za-z0-9]+)(?:\.([A-Za-z0-9_-]+))?/.exec(location.hash);
+  const code = m ? cleanCode(m[1]) : '';
+  if (code) {
+    const secret = cleanSecret(m[2]);
+    if (secret) saveKey(code, secret);   // Schlüssel aus dem QR-Code merken, aus der Adresszeile verschwindet er gleich wieder
+    startMonitor(code); return;
+  }
+  show('start');
+  if (!window.isSecureContext && !TEST) $('#insecure').hidden = false;
+})();
+</script>
+</body>
+</html>
