@@ -6,8 +6,18 @@
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#0b0d12">
 <meta name="color-scheme" content="dark">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://0.peerjs.com wss://0.peerjs.com; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js https://cdn.jsdelivr.net/npm/mediabunny@1.61.1/dist/bundles/mediabunny.min.mjs https://cdn.jsdelivr.net/npm/@mediabunny/mp3-encoder@1.61.1/dist/bundles/mediabunny-mp3-encoder.min.mjs https://cdn.jsdelivr.net/npm/@mediabunny/aac-encoder@1.61.1/dist/bundles/mediabunny-aac-encoder.min.mjs; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://0.peerjs.com wss://0.peerjs.com; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>Kamera-Monitor</title>
+<script type="importmap">
+{
+  "imports": { "mediabunny": "https://cdn.jsdelivr.net/npm/mediabunny@1.61.1/dist/bundles/mediabunny.min.mjs" },
+  "integrity": {
+    "https://cdn.jsdelivr.net/npm/mediabunny@1.61.1/dist/bundles/mediabunny.min.mjs": "sha384-7rpS0NMiuFmJjM/B4Bo2NUBiU/PJmqE71xbZUM7DJVp9MWa7WEm1GVfusk8Fhun8",
+    "https://cdn.jsdelivr.net/npm/@mediabunny/mp3-encoder@1.61.1/dist/bundles/mediabunny-mp3-encoder.min.mjs": "sha384-dPPmvuBzLi3aCp8EwoLljgDIWzp+4Zbgyag7RMlLl0OR/Tr4x0GI+XhXylqdMyoq",
+    "https://cdn.jsdelivr.net/npm/@mediabunny/aac-encoder@1.61.1/dist/bundles/mediabunny-aac-encoder.min.mjs": "sha384-tWu8bETVjaWlXRH6h0AWdIAMx3iaXDgoGVwt7ZqSMaAYi/SFEzClwk/HsWjq2siL"
+  }
+}
+</script>
 <style>
 :root{
   --bg:#0b0d12; --panel:rgba(18,21,29,.84); --panel-solid:#151922; --field:#0f131b;
@@ -41,7 +51,7 @@ h2{font-size:19px;margin:0 0 12px;letter-spacing:-.01em}
 
 /* Bildflächen */
 .stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#000;overflow:hidden}
-#vLocal{width:100%;height:100%;object-fit:contain;display:block}
+#vRaw,#cv{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
 .frame{position:relative;width:100%;height:100%;flex:none;transition:opacity .25s}
 .frame video{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:fill;background:#000}
 .frame.mirror{transform:scaleX(-1)}
@@ -55,7 +65,7 @@ h2{font-size:19px;margin:0 0 12px;letter-spacing:-.01em}
 /* Leisten */
 .bar{position:absolute;left:0;right:0;display:flex;align-items:center;gap:8px;z-index:5;
   padding:10px calc(12px + var(--safe-r)) 10px calc(12px + var(--safe-l))}
-.bar.top{top:0;padding-top:calc(10px + var(--safe-t));background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0))}
+.bar.top{top:0;padding-top:calc(10px + var(--safe-t));background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0));flex-wrap:wrap}
 .bar.bottom{bottom:0;flex-direction:column;align-items:stretch;gap:12px;padding-bottom:calc(16px + var(--safe-b));background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.65))}
 .pill{display:inline-flex;align-items:center;gap:8px;min-width:0;padding:7px 12px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:13px;
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
@@ -64,14 +74,15 @@ h2{font-size:19px;margin:0 0 12px;letter-spacing:-.01em}
 .pill[data-s=ok] .dot{background:var(--ok)}
 .pill[data-s=bad] .dot{background:var(--rec)}
 .spacer{flex:1}
+.hint{flex-basis:100%;margin:2px 0 0;padding:8px 12px;border-radius:12px;background:rgba(255,176,32,.16);border:1px solid rgba(255,176,32,.45);color:#ffd27a;font-size:13px;line-height:1.35}
 .chips{display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
 .chip{padding:8px 13px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:14px;white-space:nowrap;
   -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
 .chip[aria-pressed=true]{background:var(--accent);border-color:var(--accent)}
 .recrow{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}
 .recinfo{display:flex;flex-direction:column;gap:7px;min-width:0}
-.timer{display:flex;align-items:center;gap:7px;font-weight:650;font-size:18px;font-variant-numeric:tabular-nums}
-.timer .r{width:10px;height:10px;border-radius:50%;background:var(--rec);opacity:.25}
+.timer{display:flex;align-items:center;gap:7px;font-weight:650;font-size:18px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.timer .r{width:10px;height:10px;border-radius:50%;background:var(--rec);opacity:.25;flex:none}
 .recording .timer .r{opacity:1;animation:blink 1s steps(2,start) infinite}
 @keyframes blink{50%{opacity:.2}}
 .meter{width:100%;max-width:110px;height:6px;border-radius:3px;background:rgba(255,255,255,.2);overflow:hidden}
@@ -99,11 +110,13 @@ h2{font-size:19px;margin:0 0 12px;letter-spacing:-.01em}
 .btn.ghost{background:none;border-color:transparent;color:var(--muted)}
 .btn.wide{display:block;width:100%;margin-top:10px}
 .btn:active{filter:brightness(1.15)}
-.sheet{position:absolute;left:0;right:0;bottom:0;z-index:12;max-height:78%;overflow-y:auto;background:var(--panel-solid);border-top:1px solid var(--line);
+.btn:disabled{opacity:.5}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:12;max-height:80%;overflow-y:auto;background:var(--panel-solid);border-top:1px solid var(--line);
   border-radius:22px 22px 0 0;padding:18px calc(16px + var(--safe-r)) calc(20px + var(--safe-b)) calc(16px + var(--safe-l));box-shadow:0 -20px 50px rgba(0,0,0,.5)}
 .sheet-inner{max-width:560px;margin:0 auto}
-.sheethead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.sheethead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
 .sheethead h2{margin:0}
+.sec{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-2);margin:18px 0 10px}
 .iconbtn{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:50%;background:#232a3a;border:1px solid var(--line);font-size:22px;line-height:1}
 .field{display:grid;gap:7px;margin:0 0 16px}
 .field label{font-size:14px;color:var(--muted)}
@@ -154,11 +167,13 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px}
 </main>
 
 <section id="kamera" class="screen" hidden>
-  <div class="stage"><video id="vLocal" playsinline muted autoplay></video></div>
+  <div class="stage"><video id="vRaw" playsinline muted autoplay></video><canvas id="cv" hidden></canvas></div>
   <div class="bar top">
     <span class="pill" id="kStatus" data-s="wait"><i class="dot"></i><span>Kamera startet …</span></span>
     <span class="spacer"></span>
+    <button class="chip" id="kTorch" type="button" aria-pressed="false" hidden>Licht</button>
     <button class="chip" id="kPairBtn" type="button">Koppeln</button>
+    <p class="hint" id="kHint" hidden></p>
   </div>
 
   <div class="card" id="pairCard" hidden>
@@ -190,7 +205,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px}
     <div class="recrow">
       <div class="recinfo"><div class="timer"><i class="r"></i><span id="kTimer">0:00</span></div><div class="meter" id="kMeter"><i></i></div></div>
       <button class="rec" id="kRec" type="button" aria-pressed="false" aria-label="Aufnahme starten oder stoppen" disabled><i></i></button>
-      <div class="recside"></div>
+      <div class="recside" id="kSide"></div>
     </div>
   </div>
 
@@ -233,14 +248,16 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px}
   <div class="bar top">
     <span class="pill" id="mStatus" data-s="wait"><i class="dot"></i><span>Nicht verbunden</span></span>
     <span class="spacer"></span>
+    <button class="chip" id="mTorch" type="button" aria-pressed="false" hidden>Licht</button>
     <button class="chip" id="mFull" type="button" hidden>Vollbild</button>
+    <p class="hint" id="mHint" hidden></p>
   </div>
   <div class="bar bottom">
     <div class="chips">
       <button class="chip" id="mMirror" type="button" aria-pressed="true">Spiegeln</button>
       <button class="chip" id="mGridBtn" type="button" aria-pressed="false">Raster</button>
       <button class="chip" id="mZonesBtn" type="button" aria-pressed="false">Insta-Zonen</button>
-      <button class="chip" id="mSetBtn" type="button">Kamera</button>
+      <button class="chip" id="mSetBtn" type="button">Einstellen</button>
     </div>
     <div class="recrow">
       <div class="recinfo"><div class="timer"><i class="r"></i><span id="mTimer">0:00</span></div><div class="meter" id="mMeter"><i></i></div></div>
@@ -260,7 +277,7 @@ input[type=range]{width:100%;accent-color:var(--accent);height:28px}
   </form>
 
   <div class="sheet" id="mSettings" hidden><div class="sheet-inner">
-    <div class="sheethead"><h2>Kamera einstellen</h2><button class="iconbtn" type="button" data-close aria-label="Schließen">×</button></div>
+    <div class="sheethead"><h2>Einstellungen</h2><button class="iconbtn" type="button" data-close aria-label="Schließen">×</button></div>
     <div id="mControls"><p class="muted">Noch nicht verbunden.</p></div>
     <button class="btn wide" type="button" id="mChangeCode">Anderen Code eingeben</button>
   </div></div>
@@ -285,12 +302,40 @@ const PREFIX = 'jwkam-';
 // Keine STUN- oder TURN-Server: Die Handys verbinden sich nur direkt, das Bild läuft über keinen fremden Rechner.
 // debug 0: Das erwartbare „Kamera nicht gefunden“ beim Neuverbinden landet nicht als Fehler in der Konsole.
 const PEER_OPTS = { config: { iceServers: [] }, debug: 0 };
+const MB_URL = 'https://cdn.jsdelivr.net/npm/mediabunny@1.61.1/dist/bundles/mediabunny.min.mjs';
+const MP3_URL = 'https://cdn.jsdelivr.net/npm/@mediabunny/mp3-encoder@1.61.1/dist/bundles/mediabunny-mp3-encoder.min.mjs';
+const AAC_URL = 'https://cdn.jsdelivr.net/npm/@mediabunny/aac-encoder@1.61.1/dist/bundles/mediabunny-aac-encoder.min.mjs';
+
 const QUAL = {
-  '1080p30': { label: '1080p, 30 Bilder/s', w: 1920, h: 1080, fps: 30, bps: 16e6 },
-  '1080p60': { label: '1080p, 60 Bilder/s', w: 1920, h: 1080, fps: 60, bps: 24e6 },
-  '4k30':    { label: '4K, 30 Bilder/s',    w: 3840, h: 2160, fps: 30, bps: 45e6 },
+  '1080p30': { label: '1080p, 30 Bilder/s (empfohlen)', w: 1920, h: 1080, fps: 30, bps: 18e6 },
+  '1080p60': { label: '1080p, 60 Bilder/s', w: 1920, h: 1080, fps: 60, bps: 28e6 },
+  '4k30':    { label: '4K, 30 Bilder/s (beste Bildqualität)', w: 3840, h: 2160, fps: 30, bps: 50e6 },
 };
-const SET_KEYS = ['quality', 'lens', 'mic', 'zoom', 'exposureCompensation', 'torch'];
+const FORMATS = { mp4: 'Video (MP4)', mp3: 'Nur Ton (MP3)' };
+// Looks: Werte für die Farbstufe. vib = Farbe vor allem in blassen Tönen, teal = Kino-Tönung, fade = matte Schatten.
+const LOOK_KEYS = ['bright', 'contrast', 'sat', 'warm', 'sharp', 'vib', 'teal', 'fade'];
+const LOOKS = {
+  lebendig: { label: 'Lebendig', bright: 0.01, contrast: 1.1, sat: 1.28, warm: 0.02, sharp: 0.35, vib: 0.25, teal: 0, fade: 0 },
+  natur:    { label: 'Unverändert', bright: 0, contrast: 1, sat: 1, warm: 0, sharp: 0, vib: 0, teal: 0, fade: 0 },
+  warm:     { label: 'Warm', bright: 0.02, contrast: 1.06, sat: 1.18, warm: 0.1, sharp: 0.3, vib: 0.15, teal: 0, fade: 0 },
+  kuehl:    { label: 'Kühl', bright: 0, contrast: 1.06, sat: 1.1, warm: -0.09, sharp: 0.3, vib: 0.1, teal: 0, fade: 0 },
+  kino:     { label: 'Kino', bright: -0.01, contrast: 1.15, sat: 0.95, warm: 0.01, sharp: 0.3, vib: 0, teal: 1, fade: 0.05 },
+  sw:       { label: 'Schwarzweiß', bright: 0, contrast: 1.2, sat: 0, warm: 0, sharp: 0.35, vib: 0, teal: 0, fade: 0 },
+};
+const pct = v => Math.round(v * 100) + ' %';
+const signed = v => (v > 0 ? '+' : '') + Math.round(v * 100);
+const LOOK_SLIDERS = [
+  ['bright', 'Helligkeit', -0.25, 0.25, 0.01, signed],
+  ['contrast', 'Kontrast', 0.6, 1.6, 0.01, pct],
+  ['sat', 'Farbe', 0, 2, 0.01, pct],
+  ['warm', 'Wärme', -0.3, 0.3, 0.01, signed],
+  ['sharp', 'Schärfe', 0, 1.5, 0.05, pct],
+];
+// Belichtungszeiten in 100-µs-Schritten (so zählt der Browser). 1/50 und 1/100 flimmern nicht unter deutschen Lampen.
+const SHUTTERS = [[333, '1/30 s'], [200, '1/50 s'], [167, '1/60 s'], [100, '1/100 s'], [83, '1/120 s'], [40, '1/250 s'], [20, '1/500 s']];
+const SHARP_TIME = 100;
+const SET_KEYS = new Set(['quality', 'lens', 'mic', 'format', 'autosave', 'look', 'bright', 'contrast', 'sat', 'warm', 'sharp',
+  'zoom', 'exposureCompensation', 'torch', 'expo', 'exposureTime', 'iso', 'wb', 'colorTemperature', 'focus', 'focusDistance']);
 
 const ls = {
   get(k, d = null) { try { const v = localStorage.getItem('km.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -303,7 +348,7 @@ function b64url(bytes) { return btoa(String.fromCharCode(...bytes)).replace(/\+/
 function newSecret() { return b64url(crypto.getRandomValues(new Uint8Array(16))); }   // 128 Bit
 function cleanSecret(s) { return typeof s === 'string' && /^[A-Za-z0-9_-]{22}$/.test(s) ? s : ''; }
 function uid() { return crypto.randomUUID ? crypto.randomUUID() : newSecret(); }
-const hasQual = v => typeof v === 'string' && Object.prototype.hasOwnProperty.call(QUAL, v);
+const own = (o, k) => typeof k === 'string' && Object.prototype.hasOwnProperty.call(o, k);
 // Beweis, dass jemand den Schlüssel kennt, ohne ihn zu verschicken
 async function proof(secret, nonce, role) {
   const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret + '|' + nonce + '|' + role));
@@ -315,7 +360,10 @@ function fmtDur(ms) { const s = Math.max(0, Math.floor(ms / 1000)); const m = Ma
 function fmtSize(b) { return b >= 1e9 ? (b / 1e9).toFixed(2).replace('.', ',') + ' GB' : Math.max(0.1, b / 1e6).toFixed(1).replace('.', ',') + ' MB'; }
 function stamp(d = new Date()) { const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`; }
 function num(x, d) { x = Number(x); return Number.isFinite(x) ? x : d; }
-function list(x) { return Array.isArray(x) ? x.filter(i => i && typeof i.id === 'string').map(i => ({ id: i.id, label: String(i.label || '').slice(0, 80) })) : []; }
+function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+function obj(x) { return x && typeof x === 'object' && !Array.isArray(x) ? x : {}; }
+function strs(x) { return Array.isArray(x) ? x.filter(s => typeof s === 'string') : []; }
+function list(x) { return Array.isArray(x) ? x.slice(0, 16).filter(i => i && typeof i.id === 'string').map(i => ({ id: i.id, label: String(i.label || '').slice(0, 80) })) : []; }
 let toastT = 0;
 function toast(msg, ms = 2800) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
 function show(id) { document.querySelectorAll('.screen').forEach(s => { s.hidden = s.id !== id; }); }
@@ -325,6 +373,7 @@ function setMeter(m, peak) {
   m.firstElementChild.style.width = Math.max(0, Math.min(100, (db + 60) / 60 * 100)) + '%';
   m.classList.toggle('hot', db > -3);
 }
+function setHint(p, text) { p.hidden = !text; p.textContent = text || ''; }
 
 let wakeWanted = false;
 async function keepAwake() {
@@ -343,22 +392,23 @@ function audioCtx() {
 /* ---------- Einstellungen als Bedienelemente (für beide Handys) ---------- */
 function renderControls(box, s, set) {
   box.replaceChildren();
-  const locked = !!s.rec || !!s.busy;
-  const caps = s.caps && typeof s.caps === 'object' ? s.caps : {};
-  const addSelect = (label, items, value, key) => {
+  const locked = !!s.rec || !!s.busy || !!s.saving;
+  const caps = obj(s.caps), look = obj(s.look), hw = obj(s.hw);
+  const sec = t => box.append(el('h3', 'sec', t));
+  const info = t => box.append(el('p', 'muted small', t));
+  const addSelect = (label, items, value, key, disabled) => {
     const f = el('div', 'field'), id = box.id + '-' + key;
     const l = el('label', '', label); l.htmlFor = id;
-    const sel = el('select'); sel.id = id; sel.disabled = locked;
-    for (const it of items) { const o = el('option', '', it.label); o.value = it.id; if (it.id === value) o.selected = true; sel.append(o); }
+    const sel = el('select'); sel.id = id; sel.disabled = !!disabled;
+    for (const it of items) { const o = el('option', '', it.label); o.value = String(it.id); if (String(it.id) === String(value)) o.selected = true; sel.append(o); }
     sel.onchange = () => set(key, sel.value);
     f.append(l, sel); box.append(f);
   };
-  const addRange = (label, key, fmt) => {
-    const c = caps[key]; if (!c) return;
-    const min = num(c.min, 0), max = num(c.max, 1), step = num(c.step, 0.1) || 0.1;
+  const addRange = (label, key, src, min, max, step, value, fmt) => {
     const f = el('div', 'field'), id = box.id + '-' + key;
     const l = el('label'); l.htmlFor = id;
-    const r = el('input'); r.type = 'range'; r.id = id; r.min = min; r.max = max; r.step = step; r.value = num(c.value, min); r.dataset.key = key;
+    const r = el('input'); r.type = 'range'; r.id = id; r.min = min; r.max = max; r.step = step || 'any'; r.value = clamp(num(value, min), min, max);
+    r.dataset.key = key; r.dataset.src = src;
     const upd = () => { l.textContent = label + ': ' + fmt(+r.value); };
     let last = 0, tm = 0;
     r.addEventListener('input', () => {
@@ -374,36 +424,108 @@ function renderControls(box, s, set) {
     r.addEventListener('sync', upd);
     upd(); f.append(l, r); box.append(f);
   };
+  const capRange = (label, key, fmt, maxCap) => {
+    const c = obj(caps[key]); if (!Number.isFinite(c.min) || !Number.isFinite(c.max)) return;
+    const max = maxCap ? Math.min(c.max, maxCap) : c.max;
+    addRange(label, key, 'caps', c.min, max, c.step, c.value, fmt);
+  };
+  const hwRange = (label, key, fmt, maxCap) => {
+    const c = obj(caps[key]); if (!Number.isFinite(c.min) || !Number.isFinite(c.max)) return;
+    const max = maxCap ? Math.min(c.max, maxCap) : c.max;
+    addRange(label, key, 'hw', c.min, max, c.step, num(hw[key], c.value), fmt);
+  };
+  const has = (k, m) => strs(caps[k]).includes(m);
+
+  sec('Aufnahme');
+  addSelect('Format', Object.entries(FORMATS).map(([id, label]) => ({ id, label })), s.format, 'format', locked);
+  if (s.format !== 'mp3') addSelect('Qualität', Object.entries(QUAL).map(([id, q]) => ({ id, label: q.label })), s.quality, 'quality', locked);
   const lenses = list(s.lenses), mics = list(s.mics);
-  if (lenses.length > 1) addSelect('Linse', lenses, s.lens, 'lens');
-  addSelect('Qualität', Object.entries(QUAL).map(([id, q]) => ({ id, label: q.label })), s.quality, 'quality');
-  if (mics.length > 1) addSelect('Mikrofon', mics, s.mic, 'mic');
-  addRange('Zoom', 'zoom', v => v.toFixed(1).replace('.', ',') + '×');
-  addRange('Helligkeit', 'exposureCompensation', v => (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ','));
-  if (caps.torch) {
-    const on = !!caps.torch.value;
-    const f = el('div', 'field');
-    f.append(el('label', '', 'Licht'), btn(on ? 'Licht aus' : 'Licht an', on ? 'primary' : '', () => set('torch', !on)));
-    box.append(f);
+  if (lenses.length > 1 && s.format !== 'mp3') addSelect('Linse', lenses, s.lens, 'lens', locked);
+  if (mics.length > 1) addSelect('Mikrofon', mics, s.mic, 'mic', locked);
+  if (s.ios) info('Gesichert wird auf dem iPhone über „Aufnahmen“ und „In Fotos sichern“. Automatisch geht das in Safari nicht.');
+  else addSelect('Nach der Aufnahme', [{ id: 'auto', label: 'Automatisch aufs Handy laden' }, { id: 'app', label: 'Nur hier in der App behalten' }], s.autosave === false ? 'app' : 'auto', 'autosave');
+  if (locked && s.rec) info('Während der Aufnahme bleiben Format, Qualität, Linse und Mikrofon fest.');
+
+  if (s.format !== 'mp3') {
+    sec('Farben');
+    if (s.gl === false) info('Farben lassen sich in diesem Browser nicht einstellen, das Bild läuft unbearbeitet.');
+    else {
+      const looks = Object.entries(LOOKS).map(([id, l]) => ({ id, label: l.label }));
+      if (look.preset === 'eigen') looks.push({ id: 'eigen', label: 'Eigene Einstellung' });
+      addSelect('Look', looks, look.preset, 'look');
+      for (const [k, label, min, max, step, fmt] of LOOK_SLIDERS) addRange(label, k, 'look', min, max, step, num(look[k], LOOKS.natur[k]), fmt);
+    }
+
+    sec('Kamera');
+    const expoOk = has('expoModes', 'manual') && caps.exposureTime;
+    if (expoOk) {
+      const modes = [{ id: 'auto', label: 'Automatisch' }];
+      if (caps.iso) modes.push({ id: 'sharp', label: 'Bewegung scharf (1/100 s)' });
+      modes.push({ id: 'manual', label: 'Von Hand' });
+      addSelect('Belichtung', modes, hw.expo || 'auto', 'expo');
+      if (hw.expo === 'manual') {
+        const c = obj(caps.exposureTime);
+        const opts = SHUTTERS.filter(([v]) => v >= c.min && v <= c.max).map(([id, label]) => ({ id, label }));
+        if (opts.length) addSelect('Belichtungszeit', opts, SHUTTERS.reduce((a, b) => Math.abs(b[0] - num(hw.exposureTime, 333)) < Math.abs(a[0] - num(hw.exposureTime, 333)) ? b : a)[0], 'exposureTime');
+      }
+      if (hw.expo === 'manual') hwRange('ISO', 'iso', v => String(Math.round(v)), 3200);
+      if (hw.expo === 'sharp') info('Kurze Belichtung gegen verwischte Bewegung. Die Helligkeit regelt die App über den ISO-Wert selbst nach.');
+    }
+    const ev = v => { const x = Math.round(v * 10) / 10; return x === 0 ? '0' : (x > 0 ? '+' : '') + x.toFixed(1).replace('.', ','); };
+    if (!expoOk || (hw.expo || 'auto') === 'auto') capRange('Belichtung ±', 'exposureCompensation', ev);
+    if (has('wbModes', 'manual') && caps.colorTemperature) {
+      addSelect('Weißabgleich', [{ id: 'auto', label: 'Automatisch' }, { id: 'manual', label: 'Von Hand' }], hw.wb || 'auto', 'wb');
+      if (hw.wb === 'manual') hwRange('Farbtemperatur', 'colorTemperature', v => Math.round(v) + ' K');
+    }
+    if (has('focusModes', 'manual') && caps.focusDistance) {
+      addSelect('Fokus', [{ id: 'auto', label: 'Automatisch' }, { id: 'manual', label: 'Fest' }], hw.focus || 'auto', 'focus');
+      if (hw.focus === 'manual') hwRange('Entfernung', 'focusDistance', v => v.toFixed(2).replace('.', ',') + ' m');
+    }
+    capRange('Zoom', 'zoom', v => v.toFixed(1).replace('.', ',') + '×');
+    if (caps.torch) {
+      const on = !!obj(caps.torch).value;
+      const f = el('div', 'field');
+      f.append(el('label', '', 'Licht'), btn(on ? 'Licht aus' : 'Licht an', on ? 'primary' : '', () => set('torch', !on)));
+      box.append(f);
+    }
+    const named = [caps.zoom && 'Zoom', expoOk && 'Belichtungszeit', caps.iso && 'ISO', caps.colorTemperature && 'Weißabgleich', caps.focusDistance && 'Fokus', caps.torch && 'Licht'].filter(Boolean);
+    info(named.length ? 'Dieses Handy gibt im Browser frei: ' + named.join(', ') + '.' : 'Dieses Handy gibt im Browser keine Kamera-Feineinstellungen frei. Die Farben oben gehen trotzdem.');
   }
-  const a = s.actual || {};
-  if (a.w && a.h) box.append(el('p', 'muted small', `Läuft gerade mit ${a.w} × ${a.h}${a.fps ? ', ' + a.fps + ' Bilder/s' : ''}${s.mime ? ', speichert als ' + s.mime : ''}.`));
-  if (!caps.zoom && !caps.exposureCompensation) box.append(el('p', 'muted small', 'Zoom und Helligkeit gibt der Browser auf diesem Handy nicht frei.'));
-  if (locked && s.rec) box.append(el('p', 'muted small', 'Während der Aufnahme bleiben Linse, Qualität und Mikrofon fest.'));
+  const a = obj(s.actual);
+  const real = num(a.real, 0);
+  if (a.w && a.h && s.format !== 'mp3') info(`Läuft mit ${a.w} × ${a.h}${real ? ', gerade ' + real + ' Bilder/s' : ''}${s.mime ? '. Speichert als ' + s.mime : ''}.`);
+  else if (s.mime) info('Speichert als ' + s.mime + '.');
 }
 // Nur neu zeichnen, wenn sich etwas Grundlegendes ändert. Sonst würde ein Regler beim Ziehen springen.
 function syncControls(box, s, set) {
-  const caps = s.caps || {};
-  const sig = JSON.stringify([s.lenses, s.mics, Object.keys(caps), s.quality, s.lens, s.mic, !!s.rec, !!s.busy, caps.torch && caps.torch.value, s.actual, s.mime]);
+  const caps = obj(s.caps), look = obj(s.look), hw = obj(s.hw);
+  const sig = JSON.stringify([s.lenses, s.mics, Object.keys(caps), s.format, s.autosave, s.quality, s.lens, s.mic, !!s.rec, !!s.busy, !!s.saving,
+    look.preset, hw.expo, hw.wb, hw.focus, hw.exposureTime, obj(caps.torch).value, obj(s.actual).w, obj(s.actual).h, s.mime, s.gl]);
   if (box._sig !== sig) { box._sig = sig; renderControls(box, s, set); return; }
+  const src = { look, hw, caps };
   box.querySelectorAll('input[type=range]').forEach(r => {
     if (r.dataset.drag || document.activeElement === r) return;
-    const c = caps[r.dataset.key];
-    if (c && +r.value !== num(c.value, +r.value)) { r.value = c.value; r.dispatchEvent(new Event('sync')); }
+    const k = r.dataset.key, o = obj(src[r.dataset.src]);
+    const v = r.dataset.src === 'caps' ? obj(o[k]).value : o[k];
+    if (Number.isFinite(Number(v)) && +r.value !== Number(v)) { r.value = v; r.dispatchEvent(new Event('sync')); }
   });
+  // Die Bildrate ändert sich laufend, die Infozeile wird ohne Neuzeichnen aktualisiert
+  const p = box.lastElementChild;
+  if (p && p.tagName === 'P' && /^Läuft mit/.test(p.textContent)) {
+    const a = obj(s.actual), real = num(a.real, 0);
+    p.textContent = `Läuft mit ${a.w} × ${a.h}${real ? ', gerade ' + real + ' Bilder/s' : ''}${s.mime ? '. Speichert als ' + s.mime : ''}.`;
+  }
+}
+// Hinweis, wenn die Kamera weniger Bilder liefert als eingestellt: Fast immer ist es zu dunkel.
+function fpsHint(s) {
+  if (!s || s.format === 'mp3') return '';
+  const q = QUAL[s.quality] || QUAL['1080p30'], real = num(obj(s.actual).real, 0);
+  if (!real || real >= q.fps * 0.8) return '';
+  const sharp = strs(obj(s.caps).expoModes).includes('manual') && obj(s.caps).iso;
+  return `Die Kamera schafft gerade nur ${real} Bilder/s. Meist ist es zu dunkel: Sie belichtet dann länger, und Bewegungen verwischen. Mehr Licht${sharp ? ' oder unter Einstellungen „Bewegung scharf“' : ''} hilft.`;
 }
 
-/* ---------- Gespeicherte Aufnahmen (IndexedDB) ---------- */
+/* ---------- Gespeicherte Aufnahmen (Liste in IndexedDB, Videodateien im privaten Speicher der Seite) ---------- */
 let dbP = null;
 function db() {
   if (!dbP) dbP = new Promise((res, rej) => {
@@ -419,26 +541,168 @@ function idbRun(mode, fn) {
     tx.oncomplete = () => res(req && req.result); tx.onerror = () => rej(tx.error); tx.onabort = () => rej(tx.error);
   }));
 }
-async function idbPut(c) { try { await idbRun('readwrite', s => s.put({ id: c.id, name: c.name, type: c.type, size: c.size, dur: c.dur, created: c.created, blob: c.blob })); return true; } catch (e) { console.warn('Speichern im Browser ging nicht', e); return false; } }
+async function idbPut(c) {
+  const rec = { id: c.id, name: c.name, type: c.type, size: c.size, dur: c.dur, created: c.created, v: c.v || 1 };
+  if (c.opfs) rec.opfs = c.opfs; else rec.blob = c.blob;
+  try { await idbRun('readwrite', s => s.put(rec)); return true; } catch (e) { console.warn('Speichern im Browser ging nicht', e); return false; }
+}
 async function idbAll() { try { return (await idbRun('readonly', s => s.getAll())) || []; } catch { return []; } }
 async function idbDel(id) { try { await idbRun('readwrite', s => s.delete(id)); } catch {} }
+async function clipsDir() { const root = await navigator.storage.getDirectory(); return root.getDirectoryHandle('aufnahmen', { create: true }); }
 
 /* ================= KAMERA-HANDY ================= */
 const cam = {
-  stream: null, peer: null, conn: null, call: null, code: '', rec: null, recStart: 0, clips: [], lenses: [], mics: [],
+  raw: null, peer: null, conn: null, call: null, code: '', secret: '', ask: null,
+  rec: null, recStart: 0, starting: false, saving: false, clips: [], lenses: [], mics: [],
   caps: {}, actual: {}, busy: false, ticks: 0, retryT: 0, analyser: null, meterSrc: null, meterBuf: null, fakeTimer: 0,
-  settings: { quality: ls.get('quality', '1080p30'), lens: ls.get('lens', ''), mic: ls.get('mic', '') },
+  frames: 0, fps: 0, fpsT: 0, engine: '', isoBusy: false,
+  settings: { quality: ls.get('quality', '1080p30'), lens: ls.get('lens', ''), mic: ls.get('mic', ''), format: ls.get('format', 'mp4'), autosave: ls.get('autosave', true) !== false },
+  look: loadLook(), hw: loadHw(),
 };
-if (!hasQual(cam.settings.quality)) cam.settings.quality = '1080p30';
-const vLocal = $('#vLocal');
-
+if (!own(QUAL, cam.settings.quality)) cam.settings.quality = '1080p30';
+if (!own(FORMATS, cam.settings.format)) cam.settings.format = 'mp4';
+function loadLook() {
+  const s = obj(ls.get('look', null)), base = LOOKS.lebendig, l = { preset: own(LOOKS, s.preset) || s.preset === 'eigen' ? s.preset : 'lebendig' };
+  for (const k of LOOK_KEYS) l[k] = num(s[k], base[k]);
+  return l;
+}
+function loadHw() {
+  const s = obj(ls.get('hw', null));
+  return {
+    expo: ['auto', 'sharp', 'manual'].includes(s.expo) ? s.expo : 'auto', exposureTime: num(s.exposureTime, SHARP_TIME), iso: num(s.iso, 400),
+    wb: s.wb === 'manual' ? 'manual' : 'auto', colorTemperature: num(s.colorTemperature, 5000),
+    focus: s.focus === 'manual' ? 'manual' : 'auto', focusDistance: num(s.focusDistance, 1),
+  };
+}
+const vRaw = $('#vRaw');
 function setKStatus(kind, text) { setPill($('#kStatus'), kind, text); }
+function rawVideoTrack() { return cam.raw && cam.raw.getVideoTracks()[0]; }
+function rawAudioTrack() { return cam.raw && cam.raw.getAudioTracks()[0]; }
+// Das Bild läuft immer über die Farbstufe, auch bei „Unverändert“. Gemessen 04.10.: Liest der Kodierer die Kamera
+// direkt, teilen sich beide die Bildpuffer der Kamera, und beim Anlaufen fehlte fast eine Sekunde Bild.
+function pipeActive() { return pipe.ok; }
+function outVideoTrack() { return pipeActive() ? pipe.track : rawVideoTrack(); }
+function syncOutput() {
+  const on = pipeActive();
+  pipe.cv.hidden = !on;
+  replaceInCall();
+}
+
+/* --- Farbstufe: Kamerabild läuft durch einen Shader, das Ergebnis geht in Aufnahme und Vorschau --- */
+const pipe = { ok: false, gl: null, u: {}, cv: $('#cv'), track: null, manual: false, loop: 0, w: 0, h: 0, n: 0, luma: null, measuring: false, lctx: null, lost: false };
+const VS = 'attribute vec2 p; varying vec2 uv; void main(){ uv = vec2(p.x * 0.5 + 0.5, 0.5 - p.y * 0.5); gl_Position = vec4(p, 0.0, 1.0); }';
+const FS = `#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+varying vec2 uv; uniform sampler2D t; uniform vec2 px;
+uniform float bright, contrast, sat, warm, sharp, vib, teal, fade;
+void main(){
+  vec3 c = texture2D(t, uv).rgb;
+  if (sharp > 0.0) {
+    vec3 n = texture2D(t, uv + vec2(px.x, 0.0)).rgb + texture2D(t, uv - vec2(px.x, 0.0)).rgb
+           + texture2D(t, uv + vec2(0.0, px.y)).rgb + texture2D(t, uv - vec2(0.0, px.y)).rgb;
+    c += sharp * (c - n * 0.25);
+  }
+  c += bright;
+  c = (c - 0.5) * contrast + 0.5;
+  c += vec3(warm * 0.3, warm * 0.05, -warm * 0.3);
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  float s = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+  c = mix(vec3(l), c, sat * (1.0 + vib * (1.0 - clamp(s * 2.0, 0.0, 1.0))));
+  c += teal * mix(vec3(-0.035, 0.012, 0.045), vec3(0.05, 0.012, -0.04), smoothstep(0.15, 0.85, l));
+  c = mix(c, 0.06 + c * 0.9, fade);
+  gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
+}`;
+function initGL() {
+  const gl = pipe.cv.getContext('webgl', { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true, premultipliedAlpha: false });
+  if (!gl) return false;
+  const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+  for (const [k, v] of [[gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+  pipe.u = {};
+  for (const k of ['px', ...LOOK_KEYS]) pipe.u[k] = gl.getUniformLocation(prog, k);
+  pipe.gl = gl; pipe.w = 0; pipe.h = 0;
+  return true;
+}
+function setupPipe() {
+  try { if (!initGL()) return false; } catch (e) { console.warn('Farbstufe aus', e); return false; }
+  if (!pipe.cv.captureStream) return false;
+  pipe.track = pipe.cv.captureStream(0).getVideoTracks()[0];
+  pipe.manual = !!pipe.track && typeof pipe.track.requestFrame === 'function';
+  if (!pipe.manual) { if (pipe.track) pipe.track.stop(); pipe.track = pipe.cv.captureStream(30).getVideoTracks()[0]; }
+  if (!pipe.track) return false;
+  pipe.cv.addEventListener('webglcontextlost', e => { e.preventDefault(); pipe.lost = true; });
+  pipe.cv.addEventListener('webglcontextrestored', () => { try { initGL(); pipe.lost = false; } catch (err) { console.warn(err); } });
+  pipe.ok = true;
+  return true;
+}
+function drawFrame(src, w, h) {
+  const gl = pipe.gl; if (!gl || pipe.lost || !w || !h) return;
+  if (pipe.w !== w || pipe.h !== h) {
+    pipe.cv.width = w; pipe.cv.height = h; pipe.w = w; pipe.h = h;
+    gl.viewport(0, 0, w, h); gl.uniform2f(pipe.u.px, 1 / w, 1 / h);
+    cam.actual.w = w; cam.actual.h = h;
+  }
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+  for (const k of LOOK_KEYS) gl.uniform1f(pipe.u[k], num(cam.look[k], LOOKS.natur[k]));
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  if (pipe.manual) pipe.track.requestFrame();
+}
+// Helligkeit grob messen (für „Bewegung scharf“), nur alle paar Bilder und nur auf 24 × 24 Punkten
+function maybeMeasure() {
+  if (++pipe.n % 12 || pipe.measuring || cam.hw.expo !== 'sharp' || !window.createImageBitmap) return;
+  pipe.measuring = true;
+  createImageBitmap(pipe.cv, { resizeWidth: 24, resizeHeight: 24, resizeQuality: 'low' }).then(bm => {
+    if (!pipe.lctx) { const c = el('canvas'); c.width = 24; c.height = 24; pipe.lctx = c.getContext('2d', { willReadFrequently: true }); }
+    pipe.lctx.drawImage(bm, 0, 0); bm.close();
+    const d = pipe.lctx.getImageData(0, 0, 24, 24).data; let s = 0;
+    for (let i = 0; i < d.length; i += 4) s += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+    pipe.luma = s / (d.length / 4) / 255;
+  }).catch(() => {}).finally(() => { pipe.measuring = false; });
+}
+// Jedes Kamerabild genau einmal verarbeiten. Chrome liefert die Bilder direkt, Safari über das Videoelement.
+function startLoop(track) {
+  const id = ++pipe.loop;
+  const handle = (src, w, h) => { cam.frames++; if (pipeActive()) { drawFrame(src, w, h); maybeMeasure(); } };
+  if (window.MediaStreamTrackProcessor) {
+    let reader = null;
+    try { reader = new MediaStreamTrackProcessor({ track }).readable.getReader(); } catch (e) { console.warn(e); }
+    if (reader) {
+      (async () => {
+        while (id === pipe.loop) {
+          let r; try { r = await reader.read(); } catch { break; }
+          if (r.done) break;
+          const f = r.value;
+          try { if (id === pipe.loop) handle(f, f.displayWidth, f.displayHeight); } catch (e) { console.warn(e); } finally { f.close(); }
+        }
+        try { reader.cancel(); } catch {}
+      })();
+      return;
+    }
+  }
+  const step = () => {
+    if (id !== pipe.loop) return;
+    if (vRaw.videoWidth) { try { handle(vRaw, vRaw.videoWidth, vRaw.videoHeight); } catch (e) { console.warn(e); } }
+    if (vRaw.requestVideoFrameCallback) vRaw.requestVideoFrameCallback(step); else requestAnimationFrame(step);
+  };
+  if (vRaw.requestVideoFrameCallback) vRaw.requestVideoFrameCallback(step); else requestAnimationFrame(step);
+}
 
 async function startKamera() {
   show('kamera'); keepAwake(); audioCtx();
   if (!TEST && (!window.isSecureContext || !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia))) {
     camError({ name: 'Insecure' }); return;
   }
+  setupPipe();
   try { await openCamera(); } catch (e) { camError(e); return; }
   $('#kRec').disabled = false;
   await listDevices();
@@ -447,6 +711,9 @@ async function startKamera() {
   loadClips();
   startKameraPeer();
   setInterval(camTick, 100);
+  // Aufnahme-Bausteine vorab laden, damit der Aufnahmeknopf sofort reagiert
+  engineOk().then(MB => { cam.engine = MB ? 'mb' : 'mr'; refreshKControls(); sendState(); });
+  if (cam.settings.format === 'mp3') loadMp3();
   if (navigator.mediaDevices && 'ondevicechange' in navigator.mediaDevices) {
     navigator.mediaDevices.addEventListener('devicechange', async () => { await listDevices(); refreshKControls(); sendState(); });
   }
@@ -464,15 +731,13 @@ function camError(e) {
   setKStatus('bad', 'Kamera aus');
 }
 
-function videoTrack() { return cam.stream && cam.stream.getVideoTracks()[0]; }
-
 async function openCamera() {
   cam.busy = true; sendState();
-  if (cam.stream) cam.stream.getTracks().forEach(t => t.stop());   // Handys können meist nur eine Kamera gleichzeitig öffnen
-  cam.stream = null;
-  const q = QUAL[cam.settings.quality];
-  let s;
   try {
+    if (cam.raw) cam.raw.getTracks().forEach(t => t.stop());   // Handys können meist nur eine Kamera gleichzeitig öffnen
+    cam.raw = null;
+    const q = QUAL[cam.settings.quality];
+    let s;
     if (TEST) s = fakeStream();
     else {
       const video = { width: { ideal: q.w }, height: { ideal: q.h }, frameRate: { ideal: q.fps } };
@@ -489,22 +754,25 @@ async function openCamera() {
         s = await navigator.mediaDevices.getUserMedia({ video, audio });
       }
     }
+    cam.raw = s;
+    const vt = s.getVideoTracks()[0], at = s.getAudioTracks()[0];
+    vt.addEventListener('ended', onTrackEnded);
+    const vs = vt.getSettings ? vt.getSettings() : {};
+    if (vs.deviceId && !TEST) cam.settings.lens = vs.deviceId;
+    const as = at && at.getSettings ? at.getSettings() : {};
+    if (as.deviceId && !TEST) cam.settings.mic = as.deviceId;
+    vRaw.srcObject = new MediaStream([vt]); vRaw.play().catch(() => {});
+    setupMeter(at);
+    startLoop(vt);
+    for (let i = 0; i < 30 && !(pipe.w || vRaw.videoWidth); i++) await new Promise(r => setTimeout(r, 100));
+    pipe.cv.hidden = !pipeActive();
+    readCaps();
+    await applyHw();
+    $('#kError').hidden = true;
+    await replaceInCall();
   } finally { cam.busy = false; }
-  cam.stream = s;
-  const vt = s.getVideoTracks()[0], at = s.getAudioTracks()[0];
-  vt.addEventListener('ended', onTrackEnded);
-  const vs = vt.getSettings ? vt.getSettings() : {};
-  if (vs.deviceId && !TEST) cam.settings.lens = vs.deviceId;
-  const as = at && at.getSettings ? at.getSettings() : {};
-  if (as.deviceId && !TEST) cam.settings.mic = as.deviceId;
-  vLocal.srcObject = s; vLocal.play().catch(() => {});
-  setupMeter(at);
-  await new Promise(r => { if (vLocal.readyState >= 1) r(); else { vLocal.onloadedmetadata = () => r(); setTimeout(r, 1500); } });
-  readCaps();
-  $('#kError').hidden = true;
-  await replaceInCall();
 }
-vLocal.addEventListener('resize', () => { readCaps(); refreshKControls(); sendState(); });
+vRaw.addEventListener('resize', () => { readCaps(); refreshKControls(); sendState(); });
 
 function onTrackEnded() {
   if (cam.rec) stopRec();
@@ -515,12 +783,12 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible') return;
   if (wakeWanted) keepAwake();
   // Nach dem Zurückkommen zeichnen manche Browser ein Video nicht neu. Neu anhängen weckt es auf.
-  for (const v of [vLocal, vRemote]) {
+  for (const v of [vRaw, vRemote]) {
     const s = v.srcObject;
     if (s) { v.srcObject = null; v.srcObject = s; v.play().catch(() => {}); }
   }
-  const vt = videoTrack();
-  if (vt && vt.readyState === 'ended') openCamera().then(() => { setKStatus(cam.conn && cam.conn.open ? 'ok' : 'wait', cam.conn && cam.conn.open ? 'Monitor verbunden' : 'Warte auf das zweite Handy'); }).catch(camError);
+  const vt = rawVideoTrack();
+  if (vt && vt.readyState === 'ended') openCamera().then(() => { setKStatus(cam.conn && cam.conn.open ? 'ok' : 'wait', cam.conn && cam.conn.open ? 'Monitor verbunden' : 'Warte auf das zweite Handy'); refreshKControls(); }).catch(camError);
 });
 
 async function listDevices() {
@@ -537,19 +805,39 @@ async function listDevices() {
 }
 
 function readCaps() {
-  const vt = videoTrack(); const caps = {};
-  if (vt && vt.getCapabilities) {
-    try {
-      const c = vt.getCapabilities(), s = vt.getSettings();
-      for (const k of ['zoom', 'exposureCompensation']) {
-        if (c[k] && c[k].max > c[k].min) caps[k] = { min: c[k].min, max: c[k].max, step: c[k].step || 0.1, value: s[k] != null ? s[k] : (k === 'zoom' ? c[k].min : 0) };
-      }
-      if (c.torch) caps.torch = { value: !!s.torch };
-    } catch {}
+  const vt = rawVideoTrack(); let c = {}, st = {};
+  try { c = vt && vt.getCapabilities ? vt.getCapabilities() : {}; } catch {}
+  try { st = vt && vt.getSettings ? vt.getSettings() : {}; } catch {}
+  if (TEST) {   // Testbild: so tun, als hätte die Kamera alle Regler, damit sich die Bedienung prüfen lässt
+    c = { zoom: { min: 1, max: 8, step: 0.1 }, exposureCompensation: { min: -2, max: 2, step: 0.33 }, exposureTime: { min: 1, max: 1000, step: 1 },
+      iso: { min: 50, max: 3200, step: 1 }, colorTemperature: { min: 2500, max: 7500, step: 50 }, focusDistance: { min: 0, max: 10, step: 0.01 },
+      torch: true, exposureMode: ['continuous', 'manual'], whiteBalanceMode: ['continuous', 'manual'], focusMode: ['continuous', 'manual'] };
   }
+  const caps = {};
+  const rng = (k, def) => { const r = c[k]; if (r && Number.isFinite(r.max) && Number.isFinite(r.min) && r.max > r.min) caps[k] = { min: r.min, max: r.max, step: r.step || 0, value: st[k] != null ? st[k] : def(r) }; };
+  rng('zoom', r => r.min); rng('exposureCompensation', () => 0); rng('exposureTime', () => SHARP_TIME); rng('iso', r => Math.max(r.min, 400));
+  rng('colorTemperature', () => 5000); rng('focusDistance', r => r.min);
+  if (c.torch) caps.torch = { value: !!st.torch };
+  caps.expoModes = strs(c.exposureMode); caps.wbModes = strs(c.whiteBalanceMode); caps.focusModes = strs(c.focusMode);
   cam.caps = caps;
-  const st = vt && vt.getSettings ? vt.getSettings() : {};
-  cam.actual = { w: vLocal.videoWidth || st.width || 0, h: vLocal.videoHeight || st.height || 0, fps: Math.round(st.frameRate || 0) };
+  cam.actual = { w: pipe.w || vRaw.videoWidth || st.width || 0, h: pipe.h || vRaw.videoHeight || st.height || 0, fps: Math.round(st.frameRate || 0) };
+}
+// Belichtung, Weißabgleich und Fokus anwenden. Jede Gruppe einzeln, damit eine abgelehnte nicht die anderen kippt.
+async function applyHw() {
+  const vt = rawVideoTrack(); if (!vt || TEST) return;
+  const c = cam.caps, h = cam.hw, sets = [];
+  const has = (k, m) => strs(c[k]).includes(m);
+  if (h.expo !== 'auto' && has('expoModes', 'manual') && c.exposureTime) {
+    const e = { exposureMode: 'manual', exposureTime: clamp(h.expo === 'sharp' ? SHARP_TIME : h.exposureTime, c.exposureTime.min, c.exposureTime.max) };
+    if (c.iso) e.iso = clamp(h.iso, c.iso.min, c.iso.max);
+    sets.push(e);
+  } else if (has('expoModes', 'continuous')) sets.push({ exposureMode: 'continuous' });
+  if (h.wb === 'manual' && has('wbModes', 'manual') && c.colorTemperature) sets.push({ whiteBalanceMode: 'manual', colorTemperature: clamp(h.colorTemperature, c.colorTemperature.min, c.colorTemperature.max) });
+  else if (has('wbModes', 'continuous')) sets.push({ whiteBalanceMode: 'continuous' });
+  if (h.focus === 'manual' && has('focusModes', 'manual') && c.focusDistance) sets.push({ focusMode: 'manual', focusDistance: clamp(h.focusDistance, c.focusDistance.min, c.focusDistance.max) });
+  else if (has('focusModes', 'continuous')) sets.push({ focusMode: 'continuous' });
+  if (!sets.length) return;
+  try { await vt.applyConstraints({ advanced: sets }); } catch (e) { console.warn('Kamera lehnt Einstellung ab', e); }
 }
 
 function setupMeter(track) {
@@ -574,8 +862,10 @@ function fakeStream() {
   clearInterval(cam.fakeTimer);
   cam.fakeTimer = setInterval(() => {
     const t = (performance.now() - t0) / 1000;
-    g.fillStyle = '#14203a'; g.fillRect(0, 0, 540, 960);
-    g.fillStyle = '#597fd9'; g.beginPath(); g.arc(270 + 170 * Math.sin(t * 1.3), 480 + 300 * Math.cos(t * 0.9), 70, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#5f6b7a'; g.fillRect(0, 0, 540, 960);
+    const cols = ['#c0504d', '#d9a441', '#6a9f58', '#4f7fbf', '#8a6bb0'];
+    cols.forEach((col, i) => { g.fillStyle = col; g.fillRect(40 + i * 92, 640, 80, 220); });
+    g.fillStyle = '#e8d8c4'; g.beginPath(); g.arc(270 + 170 * Math.sin(t * 1.3), 400 + 120 * Math.cos(t * 0.9), 90, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#fff'; g.font = '600 44px system-ui'; g.fillText('Testbild ' + t.toFixed(1) + ' s', 40, 90);
   }, 33);
   const tracks = [...c.captureStream(30).getVideoTracks()];
@@ -596,7 +886,25 @@ function camTick() {
     $('#kTimer').textContent = t; $('#dimInfo').textContent = 'Aufnahme läuft ' + t;
   }
   sendCam({ t: 'lvl', v: Math.round(peak * 1000) / 1000 });
-  if (++cam.ticks % 20 === 0) sendState();   // alle 2 s, hält die Verbindung lebendig
+  const now = performance.now();
+  if (now - cam.fpsT >= 1000) {   // echte Bildrate der Kamera messen
+    cam.fps = cam.fpsT ? Math.round(cam.frames * 1000 / (now - cam.fpsT)) : 0;
+    cam.frames = 0; cam.fpsT = now;
+    setHint($('#kHint'), fpsHint(camState()));
+  }
+  // „Bewegung scharf“: feste kurze Belichtung, die Helligkeit regelt der ISO-Wert
+  if (cam.hw.expo === 'sharp' && cam.caps.iso && pipe.luma != null && cam.ticks % 7 === 0 && !cam.isoBusy) {
+    const f = clamp(0.42 / Math.max(0.02, pipe.luma), 0.75, 1.35);
+    if (Math.abs(f - 1) > 0.08) {
+      const c = cam.caps.iso, iso = Math.round(clamp(cam.hw.iso * f, c.min, Math.min(c.max, 3200)));
+      if (iso !== cam.hw.iso) { cam.hw.iso = iso; cam.isoBusy = true; applyHw().finally(() => { cam.isoBusy = false; }); }
+    }
+  }
+  if (++cam.ticks % 20 === 0) { sendState(); refreshKControls(); }   // alle 2 s, hält die Verbindung lebendig
+  if (cam.rec && cam.ticks % 100 === 0) {   // alle 10 s: Speicher reicht noch?
+    const r = cam.rec;
+    freeBytes().then(f => { if (cam.rec === r && f < STOP_FREE) { toast('Speicher fast voll, Aufnahme wurde beendet und gesichert.', 6000); stopRec(); } });
+  }
 }
 
 /* --- Koppeln --- */
@@ -679,7 +987,7 @@ function askApproval(p, kill) {
 }
 function hideApproval() { cam.ask = null; $('#kAsk').hidden = true; }
 function startCall(peerId) {
-  const vt = videoTrack(); if (!vt || !cam.peer) return;
+  const vt = outVideoTrack(); if (!vt || !cam.peer) return;
   const call = cam.peer.call(peerId, new MediaStream([vt]));   // nur Bild, kein Ton: sonst gibt es Rückkopplung
   if (!call) return;
   cam.call = call;
@@ -701,7 +1009,7 @@ async function tunePreview() {
   const sender = videoSender(); if (!sender || !sender.track) return;
   try {
     const st = sender.track.getSettings();
-    const long = Math.max(st.width || 1280, st.height || 720);
+    const long = Math.max(pipe.w || st.width || 1280, pipe.h || st.height || 720);
     const p = sender.getParameters();
     if (!p.encodings || !p.encodings.length) p.encodings = [{}];
     p.encodings[0].scaleResolutionDownBy = Math.max(1, long / 1280);
@@ -710,9 +1018,9 @@ async function tunePreview() {
   } catch (e) { console.warn('Vorschau anpassen ging nicht', e); }
 }
 async function replaceInCall() {
-  const sender = videoSender(), vt = videoTrack();
+  const sender = videoSender(), vt = outVideoTrack();
   if (!sender || !vt) return;
-  try { await sender.replaceTrack(vt); await tunePreview(); }
+  try { if (sender.track !== vt) await sender.replaceTrack(vt); await tunePreview(); }
   catch (e) {
     console.warn(e);
     if (cam.conn && cam.conn.open) { try { cam.call.close(); } catch {} startCall(cam.conn.peer); }
@@ -721,96 +1029,245 @@ async function replaceInCall() {
 function sendCam(msg) { if (cam.conn && cam.conn.open) { try { cam.conn.send(msg); } catch {} } }
 function camState() {
   return {
-    t: 'state', rec: !!cam.rec, recMs: cam.rec ? Date.now() - cam.recStart : 0, busy: !!cam.busy,
-    quality: cam.settings.quality, lens: cam.settings.lens, mic: cam.settings.mic,
-    lenses: cam.lenses, mics: cam.mics, caps: cam.caps, actual: cam.actual, clips: cam.clips.length, mime: mimeLabel(),
+    t: 'state', rec: !!cam.rec, recMs: cam.rec ? Date.now() - cam.recStart : 0, busy: !!(cam.busy || cam.starting), saving: !!cam.saving,
+    quality: cam.settings.quality, lens: cam.settings.lens, mic: cam.settings.mic, format: cam.settings.format, autosave: cam.settings.autosave, ios: IS_IOS,
+    lenses: cam.lenses, mics: cam.mics, caps: cam.caps, actual: { ...cam.actual, real: cam.fps }, clips: cam.clips.length,
+    mime: mimeLabel(), look: cam.look, hw: cam.hw, gl: pipe.ok,
   };
 }
 function sendState() { sendCam(camState()); }
+// Befehle vom Monitor gebremst: Aufnahme an/aus höchstens jede Sekunde, Einstellungen gesammelt alle 60 ms
+const setQ = new Map(); let setT = 0, lastRecCmd = 0;
 function onMonitorMsg(d) {
   if (!d || typeof d !== 'object') return;
-  if (d.t === 'rec') { d.on ? startRec() : stopRec(); }
-  else if (d.t === 'set' && SET_KEYS.includes(d.k)) applySetting(d.k, d.v);
+  if (d.t === 'rec') {
+    const now = Date.now(); if (now - lastRecCmd < 1000) { sendState(); return; }
+    lastRecCmd = now; d.on ? startRec() : stopRec();
+  }
+  else if (d.t === 'set' && SET_KEYS.has(d.k)) {
+    setQ.set(d.k, d.v);
+    if (!setT) setT = setTimeout(async () => {
+      const items = [...setQ]; setQ.clear();
+      for (const [k, v] of items) { try { await applySetting(k, v); } catch (e) { console.warn(e); } }
+      setT = 0;
+    }, 60);
+  }
   else if (d.t === 'hello') sendState();
 }
 
 async function applySetting(k, v) {
+  const done = () => { refreshKControls(); sendState(); };
   if (k === 'quality' || k === 'lens' || k === 'mic') {
-    if (cam.rec || cam.busy) { sendState(); return; }
-    if (k === 'quality' && !hasQual(v)) return;
+    if (cam.rec || cam.busy || cam.saving || cam.starting) { sendState(); return; }
+    if (k === 'quality' && !own(QUAL, v)) return;
     if (k !== 'quality' && !(k === 'lens' ? cam.lenses : cam.mics).some(x => x.id === v)) return;
     cam.settings[k] = v; ls.set(k, v);
     try { await openCamera(); } catch (e) { camError(e); return; }
-    refreshKControls(); sendState();
-    return;
+    return done();
   }
-  const vt = videoTrack(), cap = cam.caps[k];
+  if (k === 'format') {
+    if (cam.rec || cam.saving || cam.starting || !own(FORMATS, v)) { sendState(); return; }
+    cam.settings.format = v; ls.set('format', v);
+    if (v === 'mp3') loadMp3();
+    setHint($('#kHint'), fpsHint(camState()));
+    return done();
+  }
+  if (k === 'autosave') {
+    if (v !== 'auto' && v !== 'app') return;
+    cam.settings.autosave = v === 'auto'; ls.set('autosave', cam.settings.autosave);
+    return done();
+  }
+  if (k === 'look') {
+    if (!own(LOOKS, v)) return;
+    cam.look = { preset: v }; for (const key of LOOK_KEYS) cam.look[key] = LOOKS[v][key];
+    ls.set('look', cam.look); syncOutput(); return done();
+  }
+  const slider = LOOK_SLIDERS.find(x => x[0] === k);
+  if (slider) {
+    const val = num(v, NaN); if (!Number.isFinite(val)) return;
+    cam.look[k] = clamp(val, slider[2], slider[3]); cam.look.preset = 'eigen';
+    ls.set('look', cam.look); syncOutput(); return done();
+  }
+  if (['expo', 'wb', 'focus', 'exposureTime', 'iso', 'colorTemperature', 'focusDistance'].includes(k)) {
+    if (k === 'expo') { if (!['auto', 'sharp', 'manual'].includes(v)) return; cam.hw.expo = v; }
+    else if (k === 'wb' || k === 'focus') { if (v !== 'auto' && v !== 'manual') return; cam.hw[k] = v; }
+    else {
+      const c = cam.caps[k], val = num(v, NaN);
+      if (!c || !Number.isFinite(val)) return;
+      cam.hw[k] = clamp(val, c.min, c.max);
+    }
+    ls.set('hw', cam.hw);
+    await applyHw(); readCaps(); return done();
+  }
+  const vt = rawVideoTrack(), cap = cam.caps[k];
   if (!vt || !cap) return;
   let val;
   if (k === 'torch') val = !!v;
-  else { val = Number(v); if (!Number.isFinite(val)) return; val = Math.min(cap.max, Math.max(cap.min, val)); }
+  else { val = num(v, NaN); if (!Number.isFinite(val)) return; val = clamp(val, cap.min, cap.max); }
   try { await vt.applyConstraints({ advanced: [{ [k]: val }] }); } catch (e) { console.warn(e); }
-  readCaps(); refreshKControls(); sendState();
+  if (TEST) { cap.value = val; return done(); }   // Testbild hat keine echte Kamera, Wert nur merken
+  readCaps(); done();
 }
-function refreshKControls() { syncControls($('#kControls'), camState(), applySetting); }
+function refreshKControls() { syncControls($('#kControls'), camState(), applySetting); torchChip($('#kTorch'), cam.caps); }
+// Schnellknopf fürs Licht (Blitz-LED als Dauerlicht), nur wenn das Handy es im Browser freigibt
+function torchChip(b, caps) { const t = obj(obj(caps).torch); b.hidden = !obj(caps).torch; b.setAttribute('aria-pressed', String(!!t.value)); }
 
-/* --- Aufnehmen --- */
-function pickMime() {
+/* --- Aufnehmen ---
+   Hauptweg (Chrome, also auch Samsung): WebCodecs plus Mediabunny. Das ergibt eine ganz normale MP4
+   (H.264 High, AAC, feste Bildrate, Länge im Dateikopf), die jeder Player abspielt, oder eine MP3.
+   Die Datei wird beim Aufnehmen direkt in den privaten Speicher der Seite geschrieben, nicht in den Arbeitsspeicher.
+   Ersatzweg (iPhone): MediaRecorder, Safari schreibt dabei selbst eine normale MP4. */
+const recLib = { mb: null, mp3: null };
+function loadMB() {
+  if (!recLib.mb) recLib.mb = (async () => {
+    const MB = await import(MB_URL);
+    if (!(await MB.canEncodeAudio('aac'))) { const { registerAacEncoder } = await import(AAC_URL); registerAacEncoder(); }
+    return MB;
+  })().catch(e => { console.warn('Aufnahme-Baustein nicht geladen', e); recLib.mb = null; return null; });
+  return recLib.mb;
+}
+function loadMp3() {
+  if (!recLib.mp3) recLib.mp3 = loadMB().then(async MB => {
+    if (!MB) return false;
+    const { registerMp3Encoder } = await import(MP3_URL); registerMp3Encoder(); return true;
+  }).catch(e => { console.warn('MP3-Baustein nicht geladen', e); recLib.mp3 = null; return false; });
+  return recLib.mp3;
+}
+async function engineOk() {
+  if (!(window.VideoEncoder && window.AudioEncoder && window.MediaStreamTrackProcessor && navigator.storage && navigator.storage.getDirectory
+    && window.FileSystemFileHandle && 'createWritable' in FileSystemFileHandle.prototype)) return null;
+  const MB = await loadMB(); if (!MB) return null;
+  try { return (await MB.canEncodeVideo('avc')) ? MB : null; } catch { return null; }
+}
+function pickMime(kind) {
   if (!window.MediaRecorder) return null;
-  // MP4 zuerst, das versteht jedes Schnittprogramm. avc3 (Chrome) bleibt auch heil, wenn sich die Bildgröße
-  // mitten in der Aufnahme ändert, etwa beim Drehen. WebM mit H.264 bzw. VP8 nutzt auf Android meist den Hardware-Encoder.
-  const opts = ['video/mp4;codecs=avc3,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=h264,opus', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp9,opus', 'video/webm'];
+  const opts = kind === 'audio'
+    ? ['audio/mp4;codecs=mp4a.40.2', 'audio/mp4', 'audio/webm;codecs=opus', 'audio/webm']
+    : ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=h264,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
   for (const m of opts) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch {} }
   return '';
 }
-function mimeLabel() { const m = pickMime(); return m === null ? '' : (m.includes('webm') ? 'WebM' : 'MP4'); }
+function mimeLabel() {
+  if (cam.engine === 'mb') return cam.settings.format === 'mp3' ? 'MP3' : 'MP4 (H.264)';
+  const m = pickMime(cam.settings.format === 'mp3' ? 'audio' : 'video');
+  return m === null ? '' : m.includes('webm') ? 'WebM' : m.startsWith('audio') ? 'M4A' : 'MP4';
+}
 
-function startRec() {
-  if (cam.rec || !cam.stream || cam.busy) return;
-  const mime = pickMime();
-  if (mime === null) { toast('Dieser Browser kann nicht aufnehmen.'); return; }
+// Freier Speicher, den der Browser der Seite noch gibt. Vor dem Start mindestens 600 MB, unter 250 MB wird gestoppt.
+async function freeBytes() { try { const e = await navigator.storage.estimate(); return (e.quota || 0) - (e.usage || 0); } catch { return Infinity; } }
+const MIN_FREE = 600e6, STOP_FREE = 250e6;
+async function startRec() {
+  if (cam.rec || cam.starting || cam.saving || !cam.raw || cam.busy) return;
+  cam.starting = true; updateRecUI(); sendState();
+  const fmt = cam.settings.format === 'mp3' ? 'mp3' : 'mp4';
+  const name = 'aufnahme-' + stamp() + '-' + uid().replace(/-/g, '').slice(0, 4);   // eindeutig, auch bei zwei Aufnahmen in einer Sekunde
+  try {
+    if (await freeBytes() < MIN_FREE) throw new Error('Der Speicher für die App ist fast voll. Lade Aufnahmen herunter und lösche sie hier.');
+    const MB = await engineOk();
+    if (MB && fmt === 'mp3' && !(await loadMp3())) throw new Error('Der MP3-Baustein lädt nicht. Internet prüfen.');
+    if (!cam.raw || cam.busy) throw new Error('Die Kamera startet gerade neu.');
+    cam.rec = MB ? await startMB(MB, fmt, name) : startMR(fmt, name);
+    cam.recStart = Date.now();
+  } catch (e) { console.warn(e); toast('Aufnahme startet nicht: ' + (e && e.message || e)); cam.rec = null; }
+  cam.starting = false; updateRecUI(); sendState();
+}
+async function startMB(MB, fmt, name) {
+  const at = rawAudioTrack();
+  if (fmt === 'mp3' && !at) throw new Error('kein Mikrofon');
+  const fileName = name + '.' + fmt;
+  const dir = await clipsDir();
+  const fh = await dir.getFileHandle(fileName, { create: true });
+  const output = new MB.Output({
+    format: fmt === 'mp3' ? new MB.Mp3OutputFormat() : new MB.Mp4OutputFormat({ fastStart: false }),
+    target: new MB.StreamTarget(await fh.createWritable()),
+  });
+  const errs = [], usesPipe = pipeActive();
+  if (fmt === 'mp4') {
+    const q = QUAL[cam.settings.quality];
+    const vs = new MB.MediaStreamVideoTrackSource(outVideoTrack(), {
+      codec: 'avc', bitrate: q.bps, bitrateMode: 'variable', latencyMode: 'quality', hardwareAcceleration: 'prefer-hardware',
+      keyFrameInterval: 2, sizeChangeBehavior: 'contain',
+    }, { frameRate: q.fps });
+    output.addVideoTrack(vs, { frameRate: q.fps }); errs.push(vs.errorPromise);
+  }
+  if (at) {
+    const as = new MB.MediaStreamAudioTrackSource(at, { codec: fmt === 'mp3' ? 'mp3' : 'aac', bitrate: 192e3 });
+    output.addAudioTrack(as); errs.push(as.errorPromise);
+  }
+  try { await output.start(); }
+  catch (e) { try { await output.cancel(); } catch {} try { await dir.removeEntry(fileName); } catch {} throw e; }
+  const r = { kind: 'mb', output, fh, dir, fileName, fmt, type: fmt === 'mp3' ? 'audio/mpeg' : 'video/mp4', failed: false, usesPipe: fmt === 'mp4' && usesPipe };
+  Promise.race(errs).catch(e => { if (cam.rec === r) { r.failed = true; toast('Fehler bei der Aufnahme: ' + (e && e.message || e), 5000); stopRec(); } });
+  return r;
+}
+function startMR(fmt, name) {
+  const at = rawAudioTrack();
+  const tracks = fmt === 'mp3' ? (at ? [at] : []) : [outVideoTrack(), ...(at ? [at] : [])];
+  if (!tracks.length) throw new Error('kein Mikrofon');
+  const mime = pickMime(fmt === 'mp3' ? 'audio' : 'video');
+  if (mime === null) throw new Error('Dieser Browser kann nicht aufnehmen.');
   const q = QUAL[cam.settings.quality];
-  const opts = { videoBitsPerSecond: q.bps, audioBitsPerSecond: 192000 };
+  const opts = fmt === 'mp3' ? { audioBitsPerSecond: 192000 } : { videoBitsPerSecond: q.bps, audioBitsPerSecond: 192000 };
   if (mime) opts.mimeType = mime;
-  let mr;
-  try { mr = new MediaRecorder(cam.stream, opts); }
-  catch { try { mr = new MediaRecorder(cam.stream); } catch (e) { toast('Aufnahme startet nicht: ' + e.message); return; } }
-  const chunks = [], start = Date.now(), name = 'aufnahme-' + stamp();
+  const stream = new MediaStream(tracks);
+  let mr; try { mr = new MediaRecorder(stream, opts); } catch { mr = new MediaRecorder(stream); }
+  const chunks = [];
   mr.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
-  mr.onstop = () => {
-    if (cam.rec === mr) { cam.rec = null; updateRecUI(); sendState(); }
-    finishClip(chunks, mr.mimeType || mime, Date.now() - start, name);
-  };
+  const stopped = new Promise(res => { mr.onstop = res; });
   mr.onerror = e => toast('Fehler bei der Aufnahme' + (e.error && e.error.message ? ': ' + e.error.message : ''));
   // Safari schreibt ohne Zeitscheiben in eine Zwischendatei, Chrome braucht Scheiben, damit nicht alles im Arbeitsspeicher liegt.
-  try { WEBKIT ? mr.start() : mr.start(1000); } catch (e) { toast('Aufnahme startet nicht: ' + e.message); return; }
-  cam.rec = mr; cam.recStart = start;
-  updateRecUI(); sendState();
+  WEBKIT ? mr.start() : mr.start(1000);
+  return {
+    kind: 'mr', usesPipe: fmt === 'mp4' && pipeActive(),
+    async finish(dur) {
+      try { if (mr.state !== 'inactive') mr.stop(); } catch {}
+      await stopped;
+      const type = String(mr.mimeType || mime || '').split(';')[0] || (fmt === 'mp3' ? 'audio/mp4' : 'video/mp4');
+      const blob = new Blob(chunks, { type });
+      if (!blob.size) { toast('Die Aufnahme war leer.'); return; }
+      const ext = type.includes('webm') ? 'webm' : type.startsWith('audio') ? 'm4a' : 'mp4';
+      await addClip({ name: name + '.' + ext, type, size: blob.size, dur, blob, v: WEBKIT ? 2 : 1 });
+    },
+  };
 }
-function stopRec() {
-  const mr = cam.rec; if (!mr) return;
-  cam.rec = null; updateRecUI(); sendState();
-  try { if (mr.state !== 'inactive') mr.stop(); } catch {}
+async function stopRec() {
+  const r = cam.rec; if (!r) return;
+  cam.rec = null; cam.saving = true; updateRecUI(); sendState();
+  const dur = Date.now() - cam.recStart;
+  try {
+    if (r.kind === 'mb') {
+      // Auch nach einem Fehler erst versuchen, das bis dahin Aufgenommene zu retten
+      let ok = true;
+      try { await r.output.finalize(); } catch (e) { ok = false; console.warn(e); try { await r.output.cancel(); } catch {} }
+      const file = ok ? await r.fh.getFile() : null;
+      if (file && file.size) await addClip({ name: r.fileName, type: r.type, size: file.size, dur, opfs: r.fileName, blob: file, v: 2 });
+      else { try { await r.dir.removeEntry(r.fileName); } catch {} toast(ok ? 'Die Aufnahme war leer.' : 'Die Aufnahme ließ sich nicht retten.', 5000); }
+    } else await r.finish(dur);
+  } catch (e) { console.warn(e); toast('Speichern ging nicht: ' + (e && e.message || e), 5000); }
+  cam.saving = false; syncOutput(); updateRecUI(); sendState();
 }
 function updateRecUI() {
   const on = !!cam.rec;
   $('#kRec').setAttribute('aria-pressed', String(on));
+  $('#kRec').disabled = cam.starting || cam.saving || !cam.raw;
   $('#kamera').classList.toggle('recording', on);
   $('#dim').classList.toggle('rec', on);
+  $('#kSide').textContent = cam.saving ? 'Speichert …' : cam.starting ? 'Startet …' : cam.settings.format === 'mp3' ? 'Nur Ton' : '';
   if (!on) { $('#kTimer').textContent = '0:00'; $('#dimInfo').textContent = 'Tippen zum Aufhellen'; }
   refreshKControls();
 }
-async function finishClip(chunks, mime, durMs, name) {
-  const type = String(mime || (chunks[0] && chunks[0].type) || 'video/mp4').split(';')[0];
-  const blob = new Blob(chunks, { type });
-  if (!blob.size) { toast('Die Aufnahme war leer.'); return; }
-  const ext = type.includes('mp4') ? 'mp4' : 'webm';
-  const clip = { id: uid(), name: name + '.' + ext, type, size: blob.size, dur: durMs, created: Date.now(), blob, saved: false, stored: false };
+async function addClip(c) {
+  const clip = { id: uid(), created: Date.now(), saved: false, ...c };
   cam.clips.unshift(clip);
   clip.stored = await idbPut(clip);
+  // Direkt aufs Handy: landet im Download-Ordner, in der Samsung-Galerie unter Alben, „Download“.
+  // Safari kann das nicht ohne Antippen, dort bleibt es beim Sichern über die Liste.
+  const auto = cam.settings.autosave && !IS_IOS;
+  if (auto) { try { downloadClip(clip); } catch (e) { console.warn(e); } }
   renderClips(); sendState();
-  sendCam({ t: 'clip', dur: durMs, size: blob.size });
-  toast(`Aufnahme fertig (${fmtDur(durMs)}, ${fmtSize(blob.size)})`);
+  sendCam({ t: 'clip', dur: clip.dur, size: clip.size, auto });
+  toast(`Aufnahme fertig (${fmtDur(clip.dur)}, ${fmtSize(clip.size)})${auto ? '. Liegt im Download-Ordner.' : ''}`, 4000);
+  return clip;
 }
 
 /* --- Aufnahmen-Liste --- */
@@ -820,25 +1277,52 @@ function canShareFiles() {
 }
 async function loadClips() {
   const saved = new Set(savedIds());
-  const stored = (await idbAll()).filter(c => c && c.blob).map(c => ({ ...c, stored: true, saved: saved.has(c.id) }));
   const known = new Set(cam.clips.map(c => c.id));
-  cam.clips = cam.clips.concat(stored.filter(c => !known.has(c.id))).sort((a, b) => b.created - a.created);
+  const out = [];
+  let dir = null;
+  for (const c of await idbAll()) {
+    if (!c || known.has(c.id)) continue;
+    if (c.opfs) {
+      try { dir = dir || await clipsDir(); c.blob = await (await dir.getFileHandle(c.opfs)).getFile(); }
+      catch { idbDel(c.id); continue; }   // Datei gibt es nicht mehr
+    }
+    if (!c.blob) continue;
+    out.push({ ...c, stored: true, saved: saved.has(c.id) });
+  }
+  // Dateien ohne Eintrag stammen aus abgebrochenen Aufnahmen (Absturz, Akku leer). Sichtbar machen, damit man sie löschen kann.
+  try {
+    dir = dir || await clipsDir();
+    const known2 = new Set(cam.clips.concat(out).map(c => c.opfs).filter(Boolean));
+    for await (const [fname, h] of dir.entries()) {
+      if (h.kind !== 'file' || known2.has(fname) || (cam.rec && cam.rec.fileName === fname)) continue;
+      const f = await h.getFile();
+      out.push({ id: 'rest-' + fname, name: fname, type: fname.endsWith('.mp3') ? 'audio/mpeg' : 'video/mp4', size: f.size, dur: 0,
+        created: f.lastModified || 0, opfs: fname, blob: f, v: 2, stored: true, orphan: true });
+    }
+  } catch (e) { console.warn(e); }
+  cam.clips = cam.clips.concat(out).sort((a, b) => b.created - a.created);
   renderClips(); sendState();
 }
+function clipBlob(c) { return new Blob([c.blob], { type: c.type }); }
 function renderClips() {
   $('#kClipsCount').textContent = cam.clips.length;
   const box = $('#clipList'); box.replaceChildren();
   if (!cam.clips.length) { box.append(el('p', 'muted', 'Noch keine Aufnahmen.')); return; }
   const share = canShareFiles();
   for (const c of cam.clips) {
+    const audio = String(c.type).startsWith('audio');
+    const old = !audio && c.v !== 2;   // mit der alten Fassung aufgenommen, spielt nicht überall
     const item = el('div', 'clip');
-    const meta = el('div', 'meta', `${fmtDur(c.dur)}, ${fmtSize(c.size)}, `);
-    meta.append(c.saved ? el('span', '', 'gesichert') : el('span', 'no', 'noch nicht gesichert'));
+    const meta = el('div', 'meta', c.orphan ? `${fmtSize(c.size)}, ` : `${audio ? 'Ton, ' : ''}${fmtDur(c.dur)}, ${fmtSize(c.size)}, `);
+    if (c.orphan) meta.append(el('span', 'no', audio ? 'abgebrochen, der Ton bis dahin ist da' : 'abgebrochen, lässt sich meist nicht abspielen'));
+    else meta.append(c.saved ? el('span', '', 'gesichert') : el('span', 'no', 'noch nicht gesichert'));
     if (!c.stored) meta.append(document.createTextNode(', nur bis zum Neuladen da'));
+    if (old) meta.append(document.createTextNode('. Alte Aufnahmeart: Falls dein Player sie nicht abspielt, auf „Reparieren“ tippen.'));
     const acts = el('div', 'acts');
-    acts.append(btn('Ansehen', '', () => playClip(c)));
-    if (IS_IOS && share) acts.append(btn('In Fotos sichern', 'primary', () => shareClip(c)), btn('In Dateien', '', () => downloadClip(c)));
+    acts.append(btn(audio ? 'Anhören' : 'Ansehen', '', () => playClip(c)));
+    if (IS_IOS && share) acts.append(btn(audio ? 'Teilen' : 'In Fotos sichern', 'primary', () => shareClip(c)), btn('In Dateien', '', () => downloadClip(c)));
     else { acts.append(btn('Herunterladen', 'primary', () => downloadClip(c))); if (share) acts.append(btn('Teilen', '', () => shareClip(c))); }
+    if (old) { const b = btn('Reparieren', '', () => repairClip(c, b, meta)); acts.append(b); }
     acts.append(btn('Löschen', 'danger', () => deleteClip(c)));
     item.append(el('div', 'ctitle', c.name), meta, acts);
     box.append(item);
@@ -857,7 +1341,7 @@ async function shareClip(c) {
   } catch (e) { if (e && e.name !== 'AbortError') toast('Teilen ging nicht. Nimm „Herunterladen“.'); }
 }
 function downloadClip(c) {
-  const url = URL.createObjectURL(c.blob);
+  const url = URL.createObjectURL(clipBlob(c));
   const a = el('a'); a.href = url; a.download = c.name; document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 120000);
   markSaved(c);
@@ -865,14 +1349,41 @@ function downloadClip(c) {
 function playClip(c) {
   const v = $('#vPlay');
   if (v.src) URL.revokeObjectURL(v.src);
-  v.src = URL.createObjectURL(c.blob);
+  v.src = URL.createObjectURL(clipBlob(c));
   $('#kPlayerTitle').textContent = c.name;
   openSheet('kPlayer');
   v.play().catch(() => {});
 }
+// Alte Aufnahmen in eine normale MP4 umrechnen (H.264 High, AAC, 30 Bilder/s). Das Original bleibt liegen.
+async function repairClip(c, b, meta) {
+  if (cam.rec || cam.saving || b.disabled) { toast('Erst die Aufnahme beenden.'); return; }
+  b.disabled = true; b.textContent = 'Repariert …';
+  const fileName = c.name.replace(/\.(mp4|webm)$/i, '') + '-repariert-' + uid().replace(/-/g, '').slice(0, 4) + '.mp4';
+  let dir = null;
+  try {
+    const MB = await loadMB(); if (!MB || !window.VideoEncoder) throw new Error('Reparieren geht in diesem Browser nicht.');
+    dir = await clipsDir();
+    const fh = await dir.getFileHandle(fileName, { create: true });
+    const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: false }), target: new MB.StreamTarget(await fh.createWritable()) });
+    const input = new MB.Input({ source: new MB.BlobSource(c.blob), formats: MB.ALL_FORMATS });
+    const conv = await MB.Conversion.init({ input, output, video: { codec: 'avc', forceTranscode: true, frameRate: 30, bitrate: 18e6 }, audio: { codec: 'aac', bitrate: 192e3 } });
+    if (!conv.isValid) { try { await output.cancel(); } catch {} throw new Error('Die Datei lässt sich nicht lesen.'); }
+    conv.onProgress = p => { b.textContent = 'Repariert … ' + Math.round(p * 100) + ' %'; };
+    await conv.execute();
+    const file = await fh.getFile();
+    await addClip({ name: fileName, type: 'video/mp4', size: file.size, dur: c.dur, opfs: fileName, blob: file, v: 2 });
+    toast('Repariert. Die neue Datei steht oben in der Liste.', 4000);
+  } catch (e) {
+    console.warn(e);
+    if (dir) { try { await dir.removeEntry(fileName); } catch {} }
+    toast('Reparieren ging nicht: ' + (e && e.message || e), 5000);
+    b.disabled = false; b.textContent = 'Reparieren';
+  }
+}
 async function deleteClip(c) {
   if (!confirm(c.saved ? 'Aufnahme löschen?' : 'Diese Aufnahme ist noch nicht gesichert. Trotzdem löschen?')) return;
   cam.clips = cam.clips.filter(x => x !== c);
+  if (c.opfs) { try { await (await clipsDir()).removeEntry(c.opfs); } catch {} }
   await idbDel(c.id);
   ls.set('saved', savedIds().filter(id => id !== c.id));
   renderClips(); sendState();
@@ -1023,7 +1534,7 @@ function monTick() {
     redial(500);
   }
   const s = mon.state;
-  $('#mTimer').textContent = s && s.rec ? fmtDur(Date.now() - mon.recBase) : '0:00';
+  $('#mTimer').textContent = s && s.saving ? 'Speichert …' : s && s.rec ? fmtDur(Date.now() - mon.recBase) : '0:00';
 }
 function onCamMsg(d) {
   if (!d || typeof d !== 'object') return;
@@ -1034,14 +1545,16 @@ function onCamMsg(d) {
     const base = Date.now() - num(d.recMs, 0);
     if (d.rec && (!prev || !prev.rec || Math.abs(base - mon.recBase) > 1000)) mon.recBase = base;
     mon.state = d;
-    $('#mRec').disabled = false;
+    $('#mRec').disabled = !!(d.busy || d.saving);
     $('#mRec').setAttribute('aria-pressed', String(!!d.rec));
     $('#monitor').classList.toggle('recording', !!d.rec);
     const n = Math.max(0, Math.floor(num(d.clips, 0)));
-    $('#mClips').textContent = n ? n + (n === 1 ? ' Aufnahme' : ' Aufnahmen') : '';
+    $('#mClips').textContent = [n ? n + (n === 1 ? ' Aufnahme' : ' Aufnahmen') : '', d.format === 'mp3' ? 'Nur Ton' : ''].filter(Boolean).join(' · ');
+    setHint($('#mHint'), fpsHint(d));
+    torchChip($('#mTorch'), d.caps);
     syncControls($('#mControls'), d, monSet);
   }
-  else if (d.t === 'clip') toast(`Aufnahme liegt auf dem Kamera-Handy (${fmtDur(num(d.dur, 0))}, ${fmtSize(num(d.size, 0))})`, 4000);
+  else if (d.t === 'clip') toast(`Aufnahme liegt auf dem Kamera-Handy${d.auto ? ' im Download-Ordner' : ''} (${fmtDur(num(d.dur, 0))}, ${fmtSize(num(d.size, 0))})`, 4000);
 }
 function monSend(msg) { if (mon.conn && mon.conn.open) { try { mon.conn.send(msg); return true; } catch {} } return false; }
 function monSet(k, v) { monSend({ t: 'set', k, v }); }
@@ -1091,7 +1604,7 @@ $('#kRec').onclick = () => { cam.rec ? stopRec() : startRec(); };
 $('#kSetBtn').onclick = () => { refreshKControls(); openSheet('kSettings'); };
 $('#kClipsBtn').onclick = () => { $('#saveHint').textContent = IS_IOS
     ? '„In Fotos sichern“ öffnet das Teilen-Menü. Dort „Video sichern“ wählen, dann liegt es in deiner Mediathek.'
-    : '„Herunterladen“ legt das Video in den Download-Ordner. Hier in der Liste bleibt es, bis du es löschst.';
+    : '„Herunterladen“ legt die Datei in den Download-Ordner. Hier in der Liste bleibt sie, bis du sie löschst.';
   renderClips(); openSheet('kClips'); };
 $('#kPairBtn').onclick = () => showPairing($('#pairCard').hidden);
 $('#kPairClose').onclick = () => showPairing(false);
@@ -1107,6 +1620,8 @@ $('#kRetry').onclick = async () => {
   try { await openCamera(); setKStatus(cam.conn && cam.conn.open ? 'ok' : 'wait', cam.conn && cam.conn.open ? 'Monitor verbunden' : 'Warte auf das zweite Handy'); refreshKControls(); }
   catch (e) { camError(e); }
 };
+$('#kTorch').onclick = () => applySetting('torch', !(cam.caps.torch && cam.caps.torch.value));
+$('#mTorch').onclick = () => { const t = mon.state ? obj(obj(mon.state.caps).torch) : {}; if (!monSend({ t: 'set', k: 'torch', v: !t.value })) toast('Noch nicht verbunden'); };
 $('#kDimBtn').onclick = () => { $('#dim').hidden = false; };
 $('#dim').onclick = () => { $('#dim').hidden = true; };
 
@@ -1128,7 +1643,7 @@ $('#mConnect').addEventListener('submit', e => {
 });
 
 addEventListener('beforeunload', e => {
-  if (cam.rec || cam.clips.some(c => !c.saved && !c.stored)) { e.preventDefault(); e.returnValue = ''; }
+  if (cam.rec || cam.saving || cam.clips.some(c => !c.saved && !c.stored)) { e.preventDefault(); e.returnValue = ''; }
 });
 addEventListener('pagehide', () => { try { if (cam.peer) cam.peer.destroy(); if (mon.peer) mon.peer.destroy(); } catch {} });
 
